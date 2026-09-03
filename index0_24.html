@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>手寫字 / 書法數位化合成工具 (v0.2.4)</title>
+  
+  <!-- PWA Theme Color & App Meta -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="手寫去背">
+  
+  <!-- Dynamic Web App Manifest via Data URI -->
+  <link rel="manifest" id="manifestPlaceholder">
+
+  <!-- HEIC 自動轉碼支援 -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --accent: #6366f1;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 20px 12px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+
+    .status-tag {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+    
+    .btn-action {
+      background: #334155;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      flex: 1;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-action:hover:not(:disabled) {
+      background: #475569;
+      border-color: #64748b;
+    }
+
+    .btn-action:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .section {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--text-main);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .val-indicator {
+      color: var(--primary);
+      font-family: monospace;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 8px 12px;
+      background: #0f172a;
+      border: 1px dashed var(--card-border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    select, input[type="color"] {
+      background: #0f172a;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    select { flex: 1; }
+
+    input[type="color"] {
+      padding: 2px;
+      width: 40px;
+      height: 36px;
+      cursor: pointer;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .disabled-block {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .canvas-container {
+      width: 100%;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background-color: #1e293b;
+      background-image: 
+        linear-gradient(45deg, #0f172a 25%, transparent 25%), 
+        linear-gradient(-45deg, #0f172a 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #0f172a 75%), 
+        linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 260px;
+      position: relative;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    canvas:active { cursor: grabbing; }
+
+    .btn-download {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      width: 100%;
+      font-size: 1rem;
+      margin-top: 15px;
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    #loadingOverlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(4px);
+      justify-content: center;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h2>手寫字 / 書法數位化合成</h2>
+    <span class="status-tag">v0.2.4 PWA</span>
+  </header>
+
+  <!-- 復原與重做 -->
+  <div class="btn-group">
+    <button class="btn-action" id="undoBtn" disabled>↩ 上一步</button>
+    <button class="btn-action" id="redoBtn" disabled>↪ 下一步</button>
+  </div>
+
+  <!-- 步驟 1: 上傳手寫字 -->
+  <div class="section">
+    <div class="section-title">1. 上傳手寫字照片</div>
+    <input type="file" id="textInput" accept="image/*,.heic,.HEIC">
+    <div class="hint">支援 JPG, PNG, HEIC (iPhone 相片自動支援)</div>
+  </div>
+
+  <!-- 步驟 2: 去背與風格調整 -->
+  <div class="section">
+    <div class="section-title">2. 模式與風格參數</div>
+    <div class="control-group">
+      <div class="row">
+        <select id="modeSelect">
+          <option value="calligraphy">毛筆 / 書法模式（保留飛白與墨韻濃淡）</option>
+          <option value="fine">硬筆字模式（局部自適應，防斷筆）</option>
+        </select>
+      </div>
+      
+      <div>
+        <label>去背靈敏度 <span class="val-indicator" id="sensVal">50</span></label>
+        <input type="range" id="sensitivity" min="0" max="100" value="50">
+      </div>
+
+      <div id="thicknessBlock" class="disabled-block">
+        <label>硬筆字筆劃粗細 <span class="val-indicator" id="thickVal">0</span></label>
+        <input type="range" id="strokeThickness" min="0" max="100" value="0" disabled>
+      </div>
+
+      <div>
+        <label>文字區塊大小 <span class="val-indicator" id="scaleVal">100%</span></label>
+        <input type="range" id="textScale" min="10" max="250" value="100">
+        <div class="hint">💡 提示：在畫面上使用「雙指捏合/張開」亦可直接縮放文字</div>
+      </div>
+
+      <div class="row" style="justify-content: space-between;">
+        <div class="row" style="flex:1;">
+          <span style="font-size:0.85rem;">文字顏色</span>
+          <input type="color" id="textColor" value="#0000FF">
+        </div>
+
+        <div class="row" style="flex:1.5;">
+          <span style="font-size:0.85rem;">文字底色</span>
+          <select id="textBgType">
+            <option value="transparent">透明</option>
+            <option value="white">白色</option>
+            <option value="black">黑色</option>
+            <option value="custom">自訂</option>
+          </select>
+          <input type="color" id="textBgColor" value="#FFF9C4" style="display:none;">
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn-action" id="resetPosBtn" style="padding:6px 12px;">置中復位</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 步驟 3: 上傳背景圖 -->
+  <div class="section">
+    <div class="section-title">3. 上傳背景圖片</div>
+    <input type="file" id="bgInput" accept="image/*,.heic,.HEIC">
+  </div>
+
+  <!-- 預覽與下載 -->
+  <div class="section">
+    <div class="section-title">4. 畫布預覽與操作 (單指拖曳 / 雙指縮放)</div>
+    <div class="canvas-container">
+      <div id="loadingOverlay">圖片處理中...</div>
+      <canvas id="mainCanvas"></canvas>
+    </div>
+    <button class="btn-download" id="downloadBtn">下載合成圖片 (PNG)</button>
+  </div>
+</div>
+
+<!-- Inline Web Worker 核心運算腳本 -->
+<script id="workerCode" type="javascript/worker">
+  self.onmessage = function(e) {
+    const { imgDataData, width, height, mode, sensitivity, thickness, hexColor } = e.data;
+    const w = width;
+    const h = height;
+
+    const gray = new Uint8Array(w * h);
+    for (let i = 0; i < imgDataData.length; i += 4) {
+      gray[i / 4] = 0.299 * imgDataData[i] + 0.587 * imgDataData[i + 1] + 0.114 * imgDataData[i + 2];
+    }
+
+    const integral = new Int32Array(w * h);
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let y = 0; y < h; y++) {
+        sum += gray[y * w + x];
+        if (x === 0) {
+          integral[y * w + x] = sum;
+        } else {
+          integral[y * w + x] = integral[y * w + (x - 1)] + sum;
+        }
+      }
+    }
+
+    const windowSize = Math.max(15, Math.floor(Math.min(w, h) / 16)); 
+    const s = Math.floor(windowSize / 2);
+    const C = 2 + (sensitivity / 100) * 33; 
+
+    const targetR = parseInt(hexColor.slice(1, 3), 16);
+    const targetG = parseInt(hexColor.slice(3, 5), 16);
+    const targetB = parseInt(hexColor.slice(5, 7), 16);
+
+    let alphaMap = new Uint8Array(w * h);
+
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) {
+        const x1 = Math.max(x - s, 0);
+        const x2 = Math.min(x + s, w - 1);
+        const y1 = Math.max(y - s, 0);
+        const y2 = Math.min(y + s, h - 1);
+
+        const count = (x2 - x1) * (y2 - y1);
+        const sum = integral[y2 * w + x2] - integral[y1 * w + x2] - integral[y2 * w + x1] + integral[y1 * w + x1];
+
+        const idx = y * w + x;
+        const currentGray = gray[idx];
+        const localAvg = sum / count;
+        const threshold = localAvg - C;
+
+        if (currentGray < threshold) {
+          if (mode === 'calligraphy') {
+            const diff = threshold - currentGray;
+            const alpha = Math.min(255, Math.max(0, Math.pow(diff / 12, 1.2) * 255));
+            alphaMap[idx] = alpha;
+          } else {
+            const diff = threshold - currentGray;
+            const alpha = Math.min(255, Math.max(0, diff * 15));
+            alphaMap[idx] = alpha;
+          }
+        } else {
+          alphaMap[idx] = 0;
+        }
+      }
+    }
+
+    if (mode === 'fine' && thickness > 0) {
+      let radius = Math.ceil((thickness / 100) * 5);
+      let expandedAlpha = new Uint8Array(w * h);
+
+      for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+          let maxAlpha = 0;
+          for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+              let nx = x + dx;
+              let ny = y + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                let a = alphaMap[ny * w + nx];
+                if (a > maxAlpha) maxAlpha = a;
+              }
+            }
+          }
+          expandedAlpha[y * w + x] = maxAlpha;
+        }
+      }
+      alphaMap = expandedAlpha;
+    }
+
+    const outputData = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      const idx = i * 4;
+      outputData[idx]     = targetR;
+      outputData[idx + 1] = targetG;
+      outputData[idx + 2] = targetB;
+      outputData[idx + 3] = alphaMap[i];
+    }
+
+    self.postMessage({ outputData, width: w, height: h }, [outputData.buffer]);
+  };
+</script>
+
+<script>
+  // --- 1. 自動注入 PWA Manifest & 註冊 Service Worker ---
+  (function initPWA() {
+    const manifestData = {
+      "name": "手寫字書法數位化工具",
+      "short_name": "手寫去背",
+      "start_url": "./",
+      "display": "standalone",
+      "background_color": "#0f172a",
+      "theme_color": "#0f172a",
+      "icons": [
+        {
+          "src": "https://cdn-icons-png.flaticon.com/512/1828/1828911.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "https://cdn-icons-png.flaticon.com/512/1828/1828911.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+    document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+        self.addEventListener('fetch', e => {
+          e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+        });
+      `;
+      const swBlob = new Blob([swCode], { type: 'text/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+    }
+  })();
+
+  // --- 2. 初始化 Worker ---
+  const blob = new Blob([document.getElementById('workerCode').textContent], { type: 'text/javascript' });
+  const worker = new Worker(URL.createObjectURL(blob));
+
+  const mainCanvas = document.getElementById('mainCanvas');
+  const ctx = mainCanvas.getContext('2d');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  
+  const textInput = document.getElementById('textInput');
+  const bgInput = document.getElementById('bgInput');
+  const modeSelect = document.getElementById('modeSelect');
+  const sensitivityInput = document.getElementById('sensitivity');
+  const sensVal = document.getElementById('sensVal');
+  const strokeThicknessInput = document.getElementById('strokeThickness');
+  const thickVal = document.getElementById('thickVal');
+  const thicknessBlock = document.getElementById('thicknessBlock');
+  const textScaleInput = document.getElementById('textScale');
+  const scaleVal = document.getElementById('scaleVal');
+  const textColorInput = document.getElementById('textColor');
+  const textBgTypeSelect = document.getElementById('textBgType');
+  const textBgColorInput = document.getElementById('textBgColor');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  const resetPosBtn = document.getElementById('resetPosBtn');
+
+  let textImg = null;
+  let bgImg = null;
+  let processedTextCanvas = document.createElement('canvas');
+
+  let textPosX = null;
+  let textPosY = null;
+  
+  // 拖曳與雙指縮放變數
+  let isDragging = false;
+  let isPinching = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let initialPinchDistance = 0;
+  let initialScaleOnPinch = 100;
+
+  let debounceTimer = null;
+
+  // --- 3. HEIC 自動轉碼 ---
+  async function processImageFile(file) {
+    const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic';
+    if (isHeic && typeof heic2any !== 'undefined') {
+      showLoading(true, "轉碼 HEIC 格式中...");
+      try {
+        const convertedBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+        return Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+      } catch (err) {
+        alert("HEIC 圖片轉碼失敗，請更換格式。");
+        showLoading(false);
+        return null;
+      }
+    }
+    return file;
+  }
+
+  function showLoading(show, text = "圖片處理中...") {
+    loadingOverlay.textContent = text;
+    loadingOverlay.style.display = show ? 'flex' : 'none';
+  }
+
+  // --- 4. 歷史紀錄 (Undo/Redo) ---
+  let historyStack = [];
+  let historyIndex = -1;
+  let isExecutingHistoryAction = false;
+
+  function updateModeUI() {
+    const isFineMode = (modeSelect.value === 'fine');
+    strokeThicknessInput.disabled = !isFineMode;
+    if (isFineMode) {
+      thicknessBlock.classList.remove('disabled-block');
+    } else {
+      thicknessBlock.classList.add('disabled-block');
+    }
+  }
+
+  function getCurrentState() {
+    return {
+      mode: modeSelect.value,
+      sensitivity: sensitivityInput.value,
+      strokeThickness: strokeThicknessInput.value,
+      textScale: textScaleInput.value,
+      textColor: textColorInput.value,
+      textBgType: textBgTypeSelect.value,
+      textBgColor: textBgColorInput.value,
+      textPosX: textPosX,
+      textPosY: textPosY,
+      hasTextImg: !!textImg,
+      textSrc: textImg ? textImg.src : null,
+      hasBgImg: !!bgImg,
+      bgSrc: bgImg ? bgImg.src : null
+    };
+  }
+
+  function saveState() {
+    if (isExecutingHistoryAction) return;
+    historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(getCurrentState());
+    historyIndex = historyStack.length - 1;
+    updateUndoRedoButtons();
+  }
+
+  function updateUndoRedoButtons() {
+    undoBtn.disabled = historyIndex <= 0;
+    redoBtn.disabled = historyIndex >= historyStack.length - 1;
+  }
+
+  function applyState(state) {
+    isExecutingHistoryAction = true;
+
+    modeSelect.value = state.mode;
+    updateModeUI();
+
+    sensitivityInput.value = state.sensitivity;
+    sensVal.textContent = state.sensitivity;
+    strokeThicknessInput.value = state.strokeThickness || 0;
+    thickVal.textContent = state.strokeThickness || 0;
+    textScaleInput.value = state.textScale;
+    scaleVal.textContent = state.textScale + '%';
+    textColorInput.value = state.textColor;
+    textBgTypeSelect.value = state.textBgType;
+    textBgColorInput.value = state.textBgColor;
+    textBgColorInput.style.display = (state.textBgType === 'custom') ? 'inline-block' : 'none';
+
+    textPosX = state.textPosX;
+    textPosY = state.textPosY;
+
+    let promises = [];
+
+    if (state.hasTextImg && state.textSrc) {
+      promises.push(new Promise((resolve) => {
+        textImg = new Image();
+        textImg.onload = resolve;
+        textImg.src = state.textSrc;
+      }));
+    } else {
+      textImg = null;
+    }
+
+    if (state.hasBgImg && state.bgSrc) {
+      promises.push(new Promise((resolve) => {
+        bgImg = new Image();
+        bgImg.onload = resolve;
+        bgImg.src = state.bgSrc;
+      }));
+    } else {
+      bgImg = null;
+    }
+
+    Promise.all(promises).then(() => {
+      if (textImg) {
+        processTextRendering();
+      } else {
+        renderComposite();
+      }
+      isExecutingHistoryAction = false;
+      updateUndoRedoButtons();
+    });
+  }
+
+  undoBtn.addEventListener('click', () => {
+    if (historyIndex > 0) {
+      historyIndex--;
+      applyState(historyStack[historyIndex]);
+    }
+  });
+
+  redoBtn.addEventListener('click', () => {
+    if (historyIndex < historyStack.length - 1) {
+      historyIndex++;
+      applyState(historyStack[historyIndex]);
+    }
+  });
+
+  resetPosBtn.addEventListener('click', () => {
+    textPosX = null;
+    textPosY = null;
+    renderComposite();
+    saveState();
+  });
+
+  // --- 5. 初始化畫布 ---
+  mainCanvas.width = 500;
+  mainCanvas.height = 350;
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '15px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('請上傳手寫字照片以開始', mainCanvas.width / 2, mainCanvas.height / 2);
+
+  updateModeUI();
+  saveState();
+
+  // --- 6. 檔案上傳與降採樣 ---
+  textInput.addEventListener('change', async (e) => {
+    const rawFile = e.target.files[0];
+    if (!rawFile) return;
+
+    const file = await processImageFile(rawFile);
+    if (!file) return;
+
+    showLoading(true, "縮放與載入中...");
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawImg = new Image();
+      rawImg.onload = () => {
+        const maxDim = 1200;
+        let w = rawImg.width;
+        let h = rawImg.height;
+
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+
+        const resizeCanvas = document.createElement('canvas');
+        resizeCanvas.width = w;
+        resizeCanvas.height = h;
+        const rCtx = resizeCanvas.getContext('2d');
+        rCtx.drawImage(rawImg, 0, 0, w, h);
+
+        textImg = new Image();
+        textImg.onload = () => {
+          textPosX = null;
+          textPosY = null;
+          processTextRendering();
+          saveState();
+        };
+        textImg.src = resizeCanvas.toDataURL('image/png');
+      };
+      rawImg.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  bgInput.addEventListener('change', async (e) => {
+    const rawFile = e.target.files[0];
+    if (!rawFile) return;
+
+    const file = await processImageFile(rawFile);
+    if (!file) return;
+
+    showLoading(true, "載入背景圖片...");
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      bgImg = new Image();
+      bgImg.onload = () => {
+        showLoading(false);
+        renderComposite();
+        saveState();
+      };
+      bgImg.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // --- 7. 防抖發射控制 ---
+  function triggerProcessWithDebounce() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (textImg) processTextRendering();
+    }, 150);
+  }
+
+  sensitivityInput.addEventListener('input', (e) => {
+    sensVal.textContent = e.target.value;
+    triggerProcessWithDebounce();
+  });
+  sensitivityInput.addEventListener('change', () => saveState());
+
+  strokeThicknessInput.addEventListener('input', (e) => {
+    thickVal.textContent = e.target.value;
+    triggerProcessWithDebounce();
+  });
+  strokeThicknessInput.addEventListener('change', () => saveState());
+
+  textScaleInput.addEventListener('input', (e) => {
+    scaleVal.textContent = e.target.value + '%';
+    renderComposite();
+  });
+  textScaleInput.addEventListener('change', () => saveState());
+
+  modeSelect.addEventListener('change', () => {
+    updateModeUI();
+    if (textImg) processTextRendering();
+    saveState();
+  });
+
+  textColorInput.addEventListener('change', () => {
+    if (textImg) processTextRendering();
+    saveState();
+  });
+
+  textBgTypeSelect.addEventListener('change', (e) => {
+    textBgColorInput.style.display = (e.target.value === 'custom') ? 'inline-block' : 'none';
+    renderComposite();
+    saveState();
+  });
+
+  textBgColorInput.addEventListener('change', () => {
+    renderComposite();
+    saveState();
+  });
+
+  // --- 8. 手指與滑鼠控制 (單指拖曳 + 雙指 Pinch-to-Zoom) ---
+  function getCanvasCoordinates(e) {
+    const rect = mainCanvas.getBoundingClientRect();
+    const scaleX = mainCanvas.width / rect.width;
+    const scaleY = mainCanvas.height / rect.height;
+    
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  function getTouchDistance(e) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function startDragOrPinch(e) {
+    if (!textImg) return;
+
+    if (e.touches && e.touches.length === 2) {
+      isPinching = true;
+      isDragging = false;
+      initialPinchDistance = getTouchDistance(e);
+      initialScaleOnPinch = parseInt(textScaleInput.value, 10);
+    } else {
+      isDragging = true;
+      isPinching = false;
+      const pos = getCanvasCoordinates(e);
+      dragStartX = pos.x - (textPosX !== null ? textPosX : 0);
+      dragStartY = pos.y - (textPosY !== null ? textPosY : 0);
+    }
+  }
+
+  function doDragOrPinch(e) {
+    if (!textImg) return;
+
+    if (isPinching && e.touches && e.touches.length === 2) {
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e);
+      const ratio = currentDistance / initialPinchDistance;
+      
+      let newScale = Math.round(initialScaleOnPinch * ratio);
+      newScale = Math.max(10, Math.min(250, newScale));
+
+      textScaleInput.value = newScale;
+      scaleVal.textContent = newScale + '%';
+      renderComposite();
+    } else if (isDragging) {
+      e.preventDefault();
+      const pos = getCanvasCoordinates(e);
+      textPosX = pos.x - dragStartX;
+      textPosY = pos.y - dragStartY;
+      renderComposite();
+    }
+  }
+
+  function stopDragOrPinch() {
+    if (isDragging || isPinching) {
+      isDragging = false;
+      isPinching = false;
+      saveState();
+    }
+  }
+
+  mainCanvas.addEventListener('mousedown', startDragOrPinch);
+  window.addEventListener('mousemove', doDragOrPinch);
+  window.addEventListener('mouseup', stopDragOrPinch);
+
+  mainCanvas.addEventListener('touchstart', startDragOrPinch, { passive: false });
+  window.addEventListener('touchmove', doDragOrPinch, { passive: false });
+  window.addEventListener('touchend', stopDragOrPinch);
+
+  // --- 9. Worker 背景處理 ---
+  function processTextRendering() {
+    if (!textImg) return;
+
+    showLoading(true, "去背運算中...");
+    const w = textImg.width;
+    const h = textImg.height;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w;
+    tempCanvas.height = h;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(textImg, 0, 0);
+
+    const imgData = tempCtx.getImageData(0, 0, w, h);
+
+    worker.postMessage({
+      imgDataData: imgData.data,
+      width: w,
+      height: h,
+      mode: modeSelect.value,
+      sensitivity: parseInt(sensitivityInput.value, 10),
+      thickness: parseInt(strokeThicknessInput.value, 10),
+      hexColor: textColorInput.value
+    });
+  }
+
+  worker.onmessage = function(e) {
+    const { outputData, width, height } = e.data;
+    
+    processedTextCanvas.width = width;
+    processedTextCanvas.height = height;
+    const pCtx = processedTextCanvas.getContext('2d');
+    
+    const imgData = pCtx.createImageData(width, height);
+    imgData.data.set(outputData);
+    pCtx.putImageData(imgData, 0, 0);
+
+    showLoading(false);
+    renderComposite();
+  };
+
+  // --- 10. 合成繪製 ---
+  function renderComposite() {
+    let targetW = 500;
+    let targetH = 350;
+
+    if (bgImg) {
+      targetW = bgImg.width;
+      targetH = bgImg.height;
+    } else if (textImg) {
+      targetW = textImg.width;
+      targetH = textImg.height;
+    }
+
+    mainCanvas.width = targetW;
+    mainCanvas.height = targetH;
+
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, targetW, targetH);
+    } else {
+      ctx.clearRect(0, 0, targetW, targetH);
+    }
+
+    if (textImg) {
+      const textW = processedTextCanvas.width;
+      const textH = processedTextCanvas.height;
+
+      const baseScale = Math.min(targetW / textW, targetH / textH);
+      const userScale = parseInt(textScaleInput.value, 10) / 100;
+      const finalScale = baseScale * userScale;
+
+      const renderW = textW * finalScale;
+      const renderH = textH * finalScale;
+
+      const defaultX = (targetW - renderW) / 2;
+      const defaultY = (targetH - renderH) / 2;
+
+      if (textPosX === null) textPosX = defaultX;
+      if (textPosY === null) textPosY = defaultY;
+
+      const bgType = textBgTypeSelect.value;
+      if (bgType !== 'transparent') {
+        let fillColor = '#ffffff';
+        if (bgType === 'black') fillColor = '#000000';
+        else if (bgType === 'custom') fillColor = textBgColorInput.value;
+
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(textPosX, textPosY, renderW, renderH);
+      }
+
+      ctx.drawImage(processedTextCanvas, textPosX, textPosY, renderW, renderH);
+    }
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'handwriting_composite_v0.2.4.png';
+    link.href = mainCanvas.toDataURL('image/png');
+    link.click();
+  });
+</script>
+
+</body>
+</html>
