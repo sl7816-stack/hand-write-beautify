@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>手寫字/書法數位化合成工具 V0.3.1</title>
+    <title>手寫字/書法數位化合成工具 V0.3.0</title>
     <!-- Manifest for PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a1d24">
@@ -191,7 +191,7 @@
 <div class="container">
     <header>
         <h1>手寫字 / 書法數位化合成工具</h1>
-        <div class="version">版本號 V0.3.1 (完整功能增強版)</div>
+        <div class="version">版本號 V0.3.0</div>
     </header>
 
     <!-- 1. 上傳書法字與去背設定 -->
@@ -204,10 +204,6 @@
                 去背靈敏度 (去除紙色): <span id="thresholdVal">80</span>
             </label>
             <input type="range" id="threshold" min="0" max="255" value="80">
-            
-            <label style="margin-top: 5px; cursor: pointer;">
-                <span><input type="checkbox" id="enableNoiseFilter" checked> 啟用 3x3 孤立白色雜訊自動濾除</span>
-            </label>
         </div>
     </div>
 
@@ -270,20 +266,10 @@
         </div>
     </div>
 
-    <!-- 5. 匯出設定與下載 -->
+    <!-- 5. 下載區 -->
     <div class="card">
-        <h3>5. 高畫質圖片匯出</h3>
-        <div class="control-group">
-            <label for="exportSize"><b>匯出解析度 (寬度)：</b></label>
-            <select id="exportSize">
-                <option value="720">720p (輕巧版 ~1MB)</option>
-                <option value="1080" selected>1080p (標準高清 ~3MB)</option>
-                <option value="1440">2K (超高清 ~5MB)</option>
-                <option value="2160">4K (極致畫質 ~8MB)</option>
-                <option value="original">原始解析度 (Original)</option>
-            </select>
-            <button class="btn" onclick="exportImage()">下載合成圖檔</button>
-        </div>
+        <h3>5. 圖片下載</h3>
+        <button class="btn" onclick="exportImage()">下載合成圖檔</button>
     </div>
 </div>
 
@@ -293,32 +279,25 @@
 
     let bgImage = null;
     let calligImage = null;
-    let processedCalligCanvas = document.createElement('canvas'); // 存放去背與著色後的書法
+    let processedCalligCanvas = document.createElement('canvas');
 
-    // 變形與外觀參數
     let scale = 1.0;
     let posX = 0;
     let posY = 0;
     let rotationAngle = 0;
     let opacityValue = 1.0;
 
-    // 手勢觸控狀態
     let isDragging = false;
     let startX, startY;
     let initialPinchDistance = null;
     let initialScale = 1.0;
 
-    // 初始化事件監聽
     document.getElementById('calligraphyInput').addEventListener('change', handleCalligraphyUpload);
     document.getElementById('bgInput').addEventListener('change', handleBgUpload);
 
     const thresholdInput = document.getElementById('threshold');
     thresholdInput.addEventListener('input', (e) => {
         document.getElementById('thresholdVal').innerText = e.target.value;
-        if (calligImage) { processCalligraphy(); render(); }
-    });
-
-    document.getElementById('enableNoiseFilter').addEventListener('change', () => {
         if (calligImage) { processCalligraphy(); render(); }
     });
 
@@ -349,7 +328,6 @@
         if (calligImage) { processCalligraphy(); render(); }
     });
 
-    // 處理書法去背 + 白色雜訊過濾 + 色彩重新賦予
     function processCalligraphy() {
         if (!calligImage) return;
 
@@ -364,48 +342,18 @@
         const imgData = pCtx.getImageData(0, 0, w, h);
         const data = imgData.data;
         const threshold = parseInt(thresholdInput.value, 10);
-        const useNoiseFilter = document.getElementById('enableNoiseFilter').checked;
         const colorMode = colorModeSelect.value;
         const customColorHex = document.getElementById('textColor').value;
 
-        // 第一階段：閾值去背 (紙張轉透明)
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
             let brightness = (r * 0.299 + g * 0.587 + b * 0.114);
 
             if (brightness > threshold) {
-                data[i + 3] = 0; // 透明
+                data[i + 3] = 0;
             }
         }
 
-        // 第二階段：3x3 孤立白色雜訊濾除 (V0.3.1 核心)
-        if (useNoiseFilter) {
-            const alphaMap = new Uint8Array(w * h);
-            for (let i = 0; i < data.length; i += 4) {
-                alphaMap[i / 4] = data[i + 3];
-            }
-
-            for (let y = 1; y < h - 1; y++) {
-                for (let x = 1; x < w - 1; x++) {
-                    let idx = y * w + x;
-                    if (alphaMap[idx] > 0) {
-                        let transparentNeighbors = 0;
-                        for (let dy = -1; dy <= 1; dy++) {
-                            for (let dx = -1; dx <= 1; dx++) {
-                                if (dx === 0 && dy === 0) continue;
-                                let nIdx = (y + dy) * w + (x + dx);
-                                if (alphaMap[nIdx] === 0) transparentNeighbors++;
-                            }
-                        }
-                        if (transparentNeighbors >= 6) {
-                            data[idx * 4 + 3] = 0;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 第三階段：色彩著色變換
         if (colorMode !== 'original') {
             let targetR = 0, targetG = 0, targetB = 0;
 
@@ -495,13 +443,11 @@
         render();
     }
 
-    // 畫面繪製渲染
     function render() {
         if (!mainCanvas.width || !mainCanvas.height) return;
 
         ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
 
-        // 1. 繪製背景圖
         if (bgImage) {
             ctx.drawImage(bgImage, 0, 0);
         } else {
@@ -509,7 +455,6 @@
             ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
         }
 
-        // 2. 繪製去背與調整後的書法字
         if (calligImage) {
             ctx.save();
             ctx.globalAlpha = opacityValue;
@@ -526,7 +471,6 @@
         }
     }
 
-    // 手勢與觸控操作
     const container = document.getElementById('canvasContainer');
 
     container.addEventListener('touchstart', (e) => {
@@ -564,41 +508,18 @@
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    // 高畫質圖片匯出功能 (V0.3.1)
     function exportImage() {
         if (!bgImage && !calligImage) {
             alert("請先上傳圖片後再進行匯出！");
             return;
         }
-
-        const sizeOption = document.getElementById('exportSize').value;
-        let targetWidth = mainCanvas.width;
-
-        if (sizeOption !== 'original') {
-            targetWidth = parseInt(sizeOption, 10);
-        }
-
-        const scaleFactor = targetWidth / mainCanvas.width;
-        const targetHeight = Math.round(mainCanvas.height * scaleFactor);
-
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = targetWidth;
-        exportCanvas.height = targetHeight;
-        const exportCtx = exportCanvas.getContext('2d');
-
-        exportCtx.imageSmoothingEnabled = true;
-        exportCtx.imageSmoothingQuality = 'high';
-
-        exportCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
-
-        const dataURL = exportCanvas.toDataURL('image/png', 1.0);
+        const dataURL = mainCanvas.toDataURL('image/png', 1.0);
         const link = document.createElement('a');
-        link.download = `calligraphy_v0.3.1_${targetWidth}p.png`;
+        link.download = `calligraphy_v0.3.0.png`;
         link.href = dataURL;
         link.click();
     }
 
-    // 初始化 Canvas 預設尺寸
     mainCanvas.width = 1080;
     mainCanvas.height = 1440;
     render();
