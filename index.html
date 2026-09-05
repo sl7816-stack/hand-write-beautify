@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.0)</title>
+  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.1)</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -39,7 +40,7 @@
     .disabled { opacity: 0.4; pointer-events: none; }
     .canvas-wrap { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #1e293b; min-height: 240px; position: relative; display: flex; justify-content: center; align-items: center; }
     canvas { max-width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
-    .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 12px; cursor: pointer; }
+    .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 10px; cursor: pointer; }
     #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; }
   </style>
 </head>
@@ -48,7 +49,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.0 防截圖版</span>
+    <span class="tag">v0.3.1 濾噪增強版</span>
   </header>
 
   <div class="btn-group">
@@ -72,6 +73,11 @@
       <label class="row" style="cursor:pointer;">
         <input type="checkbox" id="flatFieldToggle" checked style="accent-color:var(--primary);">
         <span>自動消除紙張陰影與折痕 (平場校正)</span>
+      </label>
+
+      <label class="row" style="cursor:pointer;">
+        <input type="checkbox" id="noiseFilterToggle" checked style="accent-color:var(--primary);">
+        <span>自動自動去除孤立白色雜訊與微小噪點</span>
       </label>
       
       <div>
@@ -118,6 +124,19 @@
       <div id="loading">處理中...</div>
       <canvas id="mainCanvas"></canvas>
     </div>
+
+    <!-- 增加下載尺寸選項 -->
+    <div class="row" style="margin-top: 12px;">
+      <span style="font-size:0.85rem; width: 110px;">下載解析度：</span>
+      <select id="exportSizeSelect">
+        <option value="720">720p (輕巧版)</option>
+        <option value="1080" selected>1080p (標準高清 ~3MB)</option>
+        <option value="1440">2K (超高清)</option>
+        <option value="2160">4K (極致畫質)</option>
+        <option value="original">原始解析度</option>
+      </select>
+    </div>
+
     <button class="btn-dl" id="downloadBtn">下載合成圖片 (無浮水印高清版)</button>
   </div>
 </div>
@@ -125,7 +144,7 @@
 <!-- Web Worker 獨立線程演算法 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
-    const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField } = e.data;
+    const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField, enableNoiseFilter } = e.data;
 
     let gray = new Uint8Array(w * h);
     for (let i = 0; i < imgDataData.length; i += 4) {
@@ -205,6 +224,30 @@
       }
     }
 
+    // 白色孤立雜訊過濾 (3x3 鄰域濾除)
+    if (enableNoiseFilter) {
+      let cleanedAlpha = new Uint8Array(w * h);
+      cleanedAlpha.set(alphaMap);
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          let idx = y * w + x;
+          if (alphaMap[idx] > 0) {
+            let neighborCount = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                if (alphaMap[(y + dy) * w + (x + dx)] > 0) neighborCount++;
+              }
+            }
+            if (neighborCount <= 1) {
+              cleanedAlpha[idx] = 0;
+            }
+          }
+        }
+      }
+      alphaMap = cleanedAlpha;
+    }
+
     if (mode === 'fine' && thickness > 0) {
       let rad = Math.ceil((thickness / 100) * 4);
       let expanded = new Uint8Array(w * h);
@@ -271,7 +314,9 @@
 
   function getUIState() {
     return {
-      mode: $('modeSelect').value, enableFlatField: $('flatFieldToggle').checked,
+      mode: $('modeSelect').value, 
+      enableFlatField: $('flatFieldToggle').checked,
+      enableNoiseFilter: $('noiseFilterToggle').checked,
       sensitivity: $('sensitivity').value, strokeThickness: $('strokeThickness').value,
       textScale: $('textScale').value, textColor: $('textColor').value,
       textBgType: $('textBgType').value, textBgColor: $('textBgColor').value,
@@ -292,6 +337,7 @@
     isExecHistory = true;
     $('modeSelect').value = st.mode;
     $('flatFieldToggle').checked = st.enableFlatField;
+    $('noiseFilterToggle').checked = st.enableNoiseFilter ?? true;
     $('strokeThickness').disabled = (st.mode !== 'fine');
     $('thickBlock').classList.toggle('disabled', st.mode !== 'fine');
     $('sensitivity').value = st.sensitivity; $('sensVal').textContent = st.sensitivity;
@@ -327,7 +373,9 @@
 
     worker.postMessage({
       imgDataData: imgData.data, width: temp.width, height: temp.height,
-      mode: $('modeSelect').value, enableFlatField: $('flatFieldToggle').checked,
+      mode: $('modeSelect').value, 
+      enableFlatField: $('flatFieldToggle').checked,
+      enableNoiseFilter: $('noiseFilterToggle').checked,
       sensitivity: parseInt($('sensitivity').value, 10),
       thickness: parseInt($('strokeThickness').value, 10),
       hexColor: $('textColor').value
@@ -349,13 +397,11 @@
   function drawPreviewWatermark(targetCtx, w, h) {
     targetCtx.save();
     
-    // 計算最適字體大小 (根據 Canvas 寬度動態自適應)
     const fontSize = Math.max(16, Math.floor(w / 18));
     targetCtx.font = `bold ${fontSize}px sans-serif`;
     targetCtx.textAlign = 'center';
     targetCtx.textBaseline = 'middle';
 
-    // 2x3 幾何網格節點座標 (共 6 個點)
     const points = [
       { x: w * 0.25, y: h * 0.25 }, { x: w * 0.75, y: h * 0.25 },
       { x: w * 0.25, y: h * 0.50 }, { x: w * 0.75, y: h * 0.50 },
@@ -365,14 +411,12 @@
     points.forEach(pt => {
       targetCtx.save();
       targetCtx.translate(pt.x, pt.y);
-      targetCtx.rotate(-25 * Math.PI / 180); // 傾斜 25 度
+      targetCtx.rotate(-25 * Math.PI / 180);
 
-      // 暗色陰影外描邊（確保淺色背景看得清）
       targetCtx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
       targetCtx.lineWidth = Math.max(2, fontSize / 10);
       targetCtx.strokeText('預覽專用 PREVIEW', 0, 0);
 
-      // 半透明白色文字（確保深色背景看得清）
       targetCtx.fillStyle = 'rgba(255, 255, 255, 0.38)';
       targetCtx.fillText('預覽專用 PREVIEW', 0, 0);
 
@@ -408,7 +452,6 @@
       ctx.drawImage(processedTextCanvas, textPosX, textPosY, rw, rh);
     }
 
-    // 非下載導出時，自動繪製 6 點防截圖浮水印
     if (!isExport && (textImg || bgImg)) {
       drawPreviewWatermark(ctx, tw, th);
     }
@@ -459,7 +502,7 @@
   });
 
   ['sensitivity', 'strokeThickness', 'textScale'].forEach(id => $(id).addEventListener('change', saveState));
-  ['flatFieldToggle', 'textColor'].forEach(id => $(id).addEventListener('change', () => { if (textImg) processText(); saveState(); }));
+  ['flatFieldToggle', 'noiseFilterToggle', 'textColor'].forEach(id => $(id).addEventListener('change', () => { if (textImg) processText(); saveState(); }));
   
   $('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });
   $('textBgColor').addEventListener('change', () => { render(); saveState(); });
@@ -468,13 +511,33 @@
   $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });
   $('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
   
-  // 下載時：先進行無浮水印渲染並下載，下載完後恢復畫面上的浮水印預覽
+  // 多解析度導出圖片
   $('downloadBtn').addEventListener('click', () => {
-    render(true); // isExport = true (不帶浮水印)
+    render(true); // 先產生無浮水印 Canvas
+
+    const opt = $('exportSizeSelect').value;
+    let exportCanvas = mainCanvas;
+
+    if (opt !== 'original') {
+      const targetWidth = parseInt(opt, 10);
+      const scaleFactor = targetWidth / mainCanvas.width;
+      const targetHeight = Math.round(mainCanvas.height * scaleFactor);
+
+      exportCanvas = document.createElement('canvas');
+      exportCanvas.width = targetWidth;
+      exportCanvas.height = targetHeight;
+      const exCtx = exportCanvas.getContext('2d');
+
+      exCtx.imageSmoothingEnabled = true;
+      exCtx.imageSmoothingQuality = 'high';
+      exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
+    }
+
     const a = document.createElement('a');
-    a.download = 'handwriting_v0.3.0.png';
-    a.href = mainCanvas.toDataURL('image/png');
+    a.download = `handwriting_v0.3.1_${exportCanvas.width}p.png`;
+    a.href = exportCanvas.toDataURL('image/png');
     a.click();
+
     render(false); // 恢復帶浮水印預覽
   });
 
