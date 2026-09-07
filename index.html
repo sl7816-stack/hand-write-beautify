@@ -48,7 +48,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.3 字體填補版</span>
+    <span class="tag">v0.3.3 強效填補版</span>
   </header>
 
   <div class="btn-group">
@@ -144,7 +144,7 @@
   </div>
 </div>
 
-<!-- Web Worker 獨立線程演算法 V0.3.3 -->
+<!-- Web Worker 獨立線程演算法 V0.3.3 強效填補修正版 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
     const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField, enableStrictBlack, noiseLevel } = e.data;
@@ -235,39 +235,39 @@
       }
     }
 
-    // === V0.3.3 核心修改：字中間空白/筆劃內部漏白之填補算法 (Morphology Closing) ===
+    // === V0.3.3 強效填補版：擴大檢測半徑與降低包圍門檻 ===
     let filledAlpha = new Uint8Array(w * h);
     filledAlpha.set(alphaMap);
-    const fillRadius = 2; // 檢測周圍 2 像素小孔洞
+    const fillRadius = 4; // 擴大搜尋範圍至 4 像素以包含寬筆劃交界
 
     for (let y = fillRadius; y < h - fillRadius; y++) {
       for (let x = fillRadius; x < w - fillRadius; x++) {
         let idx = y * w + x;
-        if (alphaMap[idx] === 0) {
+        if (alphaMap[idx] < 50) { // 含透明與半透明孔洞
           let solidNeighbors = 0;
           let sumAlpha = 0;
-          
-          // 檢查上下左右四周是否有高濃度筆劃包圍
+          let totalCheck = 0;
+
           for (let dy = -fillRadius; dy <= fillRadius; dy++) {
             for (let dx = -fillRadius; dx <= fillRadius; dx++) {
               if (dx === 0 && dy === 0) continue;
               let nAlpha = alphaMap[(y + dy) * w + (x + dx)];
-              if (nAlpha > 100) {
+              totalCheck++;
+              if (nAlpha > 80) { // 降低筆劃判定門檻
                 solidNeighbors++;
                 sumAlpha += nAlpha;
               }
             }
           }
-          // 若四周超過 65% 以上為實心筆劃，認定為字體內部誤煞之洞孔，進行補滿
-          const totalCheck = (fillRadius * 2 + 1) * (fillRadius * 2 + 1) - 1;
-          if (solidNeighbors >= Math.floor(totalCheck * 0.65)) {
-            filledAlpha[idx] = Math.floor(sumAlpha / solidNeighbors);
+          // 四周有 40% 以上被筆劃包圍即填滿
+          if (solidNeighbors / totalCheck >= 0.40) {
+            filledAlpha[idx] = Math.max(180, Math.floor(sumAlpha / solidNeighbors));
           }
         }
       }
     }
     alphaMap = filledAlpha;
-    // =========================================================================
+    // ===================================================
 
     if (noiseLevel > 0) {
       let cleanedAlpha = new Uint8Array(w * h);
