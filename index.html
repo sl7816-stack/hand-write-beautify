@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>書法/硬筆集字去背工具 v0.32-1</title>
+    <title>書法集字格化工具 v0.32-1 完整版</title>
     <style>
         :root {
-            --bg-color: #f4f4f9;
+            --bg-color: #f8f9fa;
             --panel-bg: #ffffff;
             --primary-color: #2c3e50;
-            --accent-color: #3498db;
+            --accent-color: #2980b9;
+            --border-color: #e9ecef;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -19,72 +20,92 @@
             color: #333;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 320px 1fr;
+            grid-template-columns: 360px 1fr;
             gap: 20px;
         }
         .panel {
             background: var(--panel-bg);
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+        .panel h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 8px;
         }
         .control-group {
-            margin-bottom: 18px;
+            margin-bottom: 14px;
         }
         label {
-            display: block;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+        .val-tag {
+            color: var(--accent-color);
             font-weight: bold;
-            margin-bottom: 6px;
-            font-size: 14px;
         }
         input[type="range"], select {
             width: 100%;
             box-sizing: border-box;
         }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            margin: 16px 0 8px 0;
+            padding-left: 6px;
+            border-left: 3px solid var(--accent-color);
+        }
         .preview-area {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #e0e0e0;
+            background: #e5e5e5;
             background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
             background-size: 20px 20px;
             background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border-radius: 8px;
-            min-height: 500px;
-            position: relative;
-            overflow: hidden;
+            border-radius: 10px;
+            min-height: 600px;
+            overflow: auto;
         }
         canvas {
             max-width: 100%;
-            max-height: 80vh;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 85vh;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         .btn {
             background-color: var(--accent-color);
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 4px;
+            padding: 12px 16px;
+            border-radius: 6px;
             cursor: pointer;
             width: 100%;
             font-weight: bold;
-            margin-top: 10px;
+            font-size: 15px;
+            margin-top: 15px;
+            transition: background 0.2s;
         }
         .btn:hover {
-            opacity: 0.9;
+            background-color: #1c5980;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- 控制面板 -->
+    <!-- 左側完整控制面板 -->
     <div class="panel">
-        <h3>v0.32-1 控制項</h3>
+        <h3>v0.32-1 完整控制項</h3>
         
         <div class="control-group">
             <label for="imageLoader">選擇圖片</label>
@@ -99,19 +120,43 @@
             </select>
         </div>
 
+        <!-- v0.3.2 完整調校參數群 -->
+        <div class="section-title">自適應門檻與去背景</div>
         <div class="control-group">
-            <label for="threshold">自適應門檻 (Threshold Offset)</label>
-            <input type="range" id="threshold" min="5" max="50" value="15">
+            <label>自適應門檻 (Offset) <span class="val-tag" id="v_threshold">15</span></label>
+            <input type="range" id="threshold" min="1" max="60" value="15">
         </div>
 
+        <div class="section-title">深層去陰影 (Depth De-shadow)</div>
         <div class="control-group">
-            <label for="noiseFilter">鄰域雜訊抑制 (v0.3.2)</label>
-            <input type="range" id="noiseFilter" min="0" max="10" value="3">
+            <label>陰影壓制強度 <span class="val-tag" id="v_shadowSuppress">20</span></label>
+            <input type="range" id="shadowSuppress" min="0" max="50" value="20">
         </div>
 
-        <hr style="border:0; border-top:1px solid #eee; margin: 20px 0;">
+        <div class="section-title">雙黑度門檻 (Dual Blackness)</div>
+        <div class="control-group">
+            <label>強墨色臨界值 (Strong Ink) <span class="val-tag" id="v_blackLow">80</span></label>
+            <input type="range" id="blackLow" min="10" max="150" value="80">
+        </div>
+        <div class="control-group">
+            <label>淡墨色臨界值 (Light Ink) <span class="val-tag" id="v_blackHigh">160</span></label>
+            <input type="range" id="blackHigh" min="80" max="230" value="160">
+        </div>
 
-        <!-- v0.3.3 移植：高清繪圖與輸出重構 -->
+        <div class="section-title">彩度判斷 (Saturation Filter)</div>
+        <div class="control-group">
+            <label>彩色印章/紙張過濾 <span class="val-tag" id="v_satThreshold">30</span></label>
+            <input type="range" id="satThreshold" min="0" max="100" value="30">
+        </div>
+
+        <div class="section-title">多階段雜訊過濾 (Noise Filter)</div>
+        <div class="control-group">
+            <label>鄰域點陣統計 (v0.3.2) <span class="val-tag" id="v_noiseFilter">3</span></label>
+            <input type="range" id="noiseFilter" min="0" max="8" value="3">
+        </div>
+
+        <!-- v0.3.3 移植：高清解析度限制 -->
+        <div class="section-title">輸出高解析鏈 (v0.3.3)</div>
         <div class="control-group">
             <label for="exportResolution">匯出解析度限制</label>
             <select id="exportResolution">
@@ -126,34 +171,49 @@
         <button class="btn" id="downloadBtn">下載去背高解析圖</button>
     </div>
 
-    <!-- 預覽區 -->
+    <!-- 右側預覽畫布 -->
     <div class="panel preview-area">
         <canvas id="mainCanvas"></canvas>
     </div>
 </div>
 
 <script>
-// Web Worker 核心：完整保留 v0.3.2 演算法（Integral Image + Flat-Field + Noise Suppression）
+// Web Worker 核心：完整 v0.3.2 影像處理鏈
 const workerCode = `
 self.onmessage = function(e) {
-    const { imageData, threshold, noiseThreshold, mode } = e.data;
+    const { 
+        imageData, threshold, shadowSuppress, 
+        blackLow, blackHigh, satThreshold, 
+        noiseThreshold, mode 
+    } = e.data;
+    
     const width = imageData.width;
     const height = imageData.height;
     const data = imageData.data;
 
-    // 1. 轉灰階與建立積分圖 (Integral Image)
     const gray = new Uint8ClampedArray(width * height);
+    const sat = new Uint8ClampedArray(width * height);
     const integral = new Uint32Array(width * height);
 
+    // 1. 彩度計算、灰階轉換與積分圖 (Integral Image)
     for (let y = 0; y < height; y++) {
         let sum = 0;
         for (let x = 0; x < width; x++) {
             const idx = (y * width + x) * 4;
-            // 標準 Rec.601 灰階轉換
-            const g = (data[idx] * 299 + data[idx + 1] * 587 + data[idx + 2] * 114) / 1000;
-            gray[y * width + x] = g;
-            
-            sum += g;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+
+            // 灰階 (Rec.601)
+            const gVal = (r * 299 + g * 587 + b * 114) / 1000;
+            gray[y * width + x] = gVal;
+
+            // 彩度估算 (Max - Min) 用於過濾彩色印章/紙張色偏
+            const maxC = Math.max(r, g, b);
+            const minC = Math.min(r, g, b);
+            sat[y * width + x] = maxC - minC;
+
+            sum += gVal;
             if (y === 0) {
                 integral[x] = sum;
             } else {
@@ -162,11 +222,9 @@ self.onmessage = function(e) {
         }
     }
 
-    // 取得區域矩形總和
     function getAreaSum(x1, y1, x2, y2) {
         x1 = Math.max(0, x1); y1 = Math.max(0, y1);
         x2 = Math.min(width - 1, x2); y2 = Math.min(height - 1, y2);
-        
         let total = integral[y2 * width + x2];
         if (x1 > 0) total -= integral[y2 * width + (x1 - 1)];
         if (y1 > 0) total -= integral[(y1 - 1) * width + x2];
@@ -174,57 +232,71 @@ self.onmessage = function(e) {
         return total;
     }
 
-    const windowSize = mode === 'hardpen' ? 15 : 31;
+    const windowSize = mode === 'hardpen' ? 15 : 35;
     const halfWin = Math.floor(windowSize / 2);
-    const output = new Uint8ClampedArray(width * height);
+    const binaryMask = new Uint8ClampedArray(width * height);
 
-    // 2. 自適應門檻與平場校正去背景
+    // 2. 深層去陰影 + 雙黑度門檻 + 自適應二值化
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            const currentPixel = gray[idx];
-            
+            const gVal = gray[idx];
+            const sVal = sat[idx];
+
+            // 彩度過濾：若彩度過高（例如紅印章或彩色 background），直接視為背景
+            if (satThreshold > 0 && sVal > satThreshold) {
+                binaryMask[idx] = 0;
+                continue;
+            }
+
             const count = (Math.min(width - 1, x + halfWin) - Math.max(0, x - halfWin) + 1) *
                           (Math.min(height - 1, y + halfWin) - Math.max(0, y - halfWin) + 1);
             const localMean = getAreaSum(x - halfWin, y - halfWin, x + halfWin, y + halfWin) / count;
 
-            // 二值化/去背判斷
-            if (currentPixel < localMean - threshold) {
-                output[idx] = 255; // 標記為前景 (筆劃)
+            // 動態自適應門檻 + 陰影壓制校正
+            const adaptiveThresh = localMean - threshold - (shadowSuppress * (1 - localMean / 255));
+
+            if (gVal < blackLow) {
+                // 強墨色區域：絕對保留
+                binaryMask[idx] = 255;
+            } else if (gVal > blackHigh) {
+                // 明亮區域：絕對背景
+                binaryMask[idx] = 0;
+            } else if (gVal < adaptiveThresh) {
+                // 中間灰階：依據區域自適應結果判斷
+                binaryMask[idx] = 255;
             } else {
-                output[idx] = 0;   // 標記為背景
+                binaryMask[idx] = 0;
             }
         }
     }
 
-    // 3. v0.3.2 鄰域點陣統計去雜訊 (Noise Suppression)
+    // 3. v0.3.2 多階段雜訊過濾 (鄰域點陣統計)
     const finalData = new Uint8ClampedArray(data.length);
     for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
             const idx = y * width + x;
             const pixIdx = idx * 4;
 
-            if (output[idx] === 255) {
-                // 統計 3x3 九宮格鄰域有效像素
+            if (binaryMask[idx] === 255) {
                 let neighbors = 0;
                 for (let ny = -1; ny <= 1; ny++) {
                     for (let nx = -1; nx <= 1; nx++) {
-                        if (output[(y + ny) * width + (x + nx)] === 255) neighbors++;
+                        if (binaryMask[(y + ny) * width + (x + nx)] === 255) neighbors++;
                     }
                 }
 
+                // 符合鄰域點陣門檻才認定為有效墨跡
                 if (neighbors >= noiseThreshold) {
-                    // 保留筆劃，輸出黑色文字與原 alpha
-                    finalData[pixIdx] = 0;
-                    finalData[pixIdx + 1] = 0;
-                    finalData[pixIdx + 2] = 0;
-                    finalData[pixIdx + 3] = 255;
+                    finalData[pixIdx] = 0;     // R
+                    finalData[pixIdx + 1] = 0; // G
+                    finalData[pixIdx + 2] = 0; // B
+                    finalData[pixIdx + 3] = 255; // Alpha
                 } else {
-                    // 雜訊清除，轉透明
-                    finalData[pixIdx + 3] = 0;
+                    finalData[pixIdx + 3] = 0; // 孤立雜訊清除
                 }
             } else {
-                finalData[pixIdx + 3] = 0; // 背景完全透明
+                finalData[pixIdx + 3] = 0; // 透明背景
             }
         }
     }
@@ -233,7 +305,7 @@ self.onmessage = function(e) {
 };
 `;
 
-// 主程式邏輯
+// 主介面邏輯
 const workerBlob = new Blob([workerCode], { type: 'text/javascript' });
 const worker = new Worker(URL.createObjectURL(workerBlob));
 
@@ -253,7 +325,6 @@ document.getElementById('imageLoader').addEventListener('change', function(e) {
     if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
 });
 
-// 重構：解析度算力計算鏈
 function getTargetDimensions(imgWidth, imgHeight, maxLimit) {
     if (maxLimit === 'original') return { width: imgWidth, height: imgHeight };
     const maxBound = parseInt(maxLimit, 10);
@@ -276,20 +347,19 @@ function processImage() {
     canvas.width = targetSize.width;
     canvas.height = targetSize.height;
 
-    // 將圖像繪製至內部 Canvas 緩衝區
     ctx.drawImage(rawImage, 0, 0, targetSize.width, targetSize.height);
     const imageData = ctx.getImageData(0, 0, targetSize.width, targetSize.height);
 
-    const threshold = parseInt(document.getElementById('threshold').value, 10);
-    const noiseThreshold = parseInt(document.getElementById('noiseFilter').value, 10);
-    const mode = document.getElementById('modeSelect').value;
-
-    // 派發任務至 Worker
+    // 傳送全套 v0.3.2 參數至 Web Worker
     worker.postMessage({
         imageData: imageData,
-        threshold: threshold,
-        noiseThreshold: noiseThreshold,
-        mode: mode
+        threshold: parseInt(document.getElementById('threshold').value, 10),
+        shadowSuppress: parseInt(document.getElementById('shadowSuppress').value, 10),
+        blackLow: parseInt(document.getElementById('blackLow').value, 10),
+        blackHigh: parseInt(document.getElementById('blackHigh').value, 10),
+        satThreshold: parseInt(document.getElementById('satThreshold').value, 10),
+        noiseThreshold: parseInt(document.getElementById('noiseFilter').value, 10),
+        mode: document.getElementById('modeSelect').value
     });
 }
 
@@ -298,12 +368,22 @@ worker.onmessage = function(e) {
     ctx.putImageData(renderedData, 0, 0);
 };
 
-// 事件監聽綁定
-['threshold', 'noiseFilter', 'modeSelect', 'exportResolution'].forEach(id => {
+// 滑桿數值即時顯示與事件監聽
+const controls = ['threshold', 'shadowSuppress', 'blackLow', 'blackHigh', 'satThreshold', 'noiseFilter'];
+controls.forEach(id => {
+    const input = document.getElementById(id);
+    const valTag = document.getElementById('v_' + id);
+    input.addEventListener('input', function() {
+        if (valTag) valTag.textContent = this.value;
+        processImage();
+    });
+});
+
+['modeSelect', 'exportResolution'].forEach(id => {
     document.getElementById(id).addEventListener('change', processImage);
 });
 
-// 匯出下載
+// 下載圖檔
 document.getElementById('downloadBtn').addEventListener('click', function() {
     if (!rawImage) return;
     const link = document.createElement('a');
