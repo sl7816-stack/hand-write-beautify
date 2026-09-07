@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>書法集字去背與數位化工具 v0.36-c</title>
+  <title>書法集字去背與數位化工具 v0.36-d</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -47,7 +47,7 @@
 <div class="container">
   <header>
     <h2>書法集字去背與數位化工具</h2>
-    <span class="tag">v0.36-c 參數直觀版</span>
+    <span class="tag">v0.36-d 尺寸優化版</span>
   </header>
 
   <div class="btn-group">
@@ -114,17 +114,16 @@
     </div>
 
     <div class="row" style="margin-top: 12px;">
-      <span style="font-size:0.85rem; width: 110px;">下載解析度：</span>
+      <span style="font-size:0.85rem; width: 110px;">下載尺寸規格：</span>
       <select id="exportResolution">
-        <option value="original" selected>原圖尺寸 (Original)</option>
-        <option value="3840">4K (UHD - 3840px)</option>
-        <option value="2560">2K (QHD - 2560px)</option>
-        <option value="1920">1080p (FHD - 1920px)</option>
-        <option value="1280">720p (HD - 1280px)</option>
+        <option value="800">精巧尺寸 (~300K - 800px)</option>
+        <option value="1280" selected>720P 標準 (~800K - 1280px)</option>
+        <option value="1920">1080P 高畫質 (~1.5M - 1920px)</option>
+        <option value="2560">極致細節 (~5M 內 - 2560px)</option>
       </select>
     </div>
 
-    <button class="btn-dl" id="downloadBtn">下載去背高解析圖</button>
+    <button class="btn-dl" id="downloadBtn">下載去背圖檔</button>
   </div>
 </div>
 
@@ -132,20 +131,17 @@
   self.onmessage = function(e) {
     const { imageDataData, width: w, height: h, thresholdVal, minBlobVal, strokeVal, hexColor } = e.data;
     
-    // 將 0-100 映射回具體演算法數值
-    // Threshold: 0~100 對應灰階 40 ~ 220
     const actualThreshold = Math.round(40 + (thresholdVal / 100) * 180);
-    // Min Blob Size: 0~100 對應 1 ~ 300 像素
     const actualMinBlob = Math.round(1 + (minBlobVal / 100) * 299);
-    // Stroke: 0~42 為侵蝕(變細)，50 為原樣，58~100 為膨脹(變粗)
-    let strokeMode = 0; // 0: 無, 1: 侵蝕(細), 2: 膨脹(粗)
+    
+    let strokeMode = 0; 
     let strokeRadius = 0;
     if (strokeVal < 45) {
       strokeMode = 1;
-      strokeRadius = Math.round((45 - strokeVal) / 15) + 1; // 1 ~ 3 像素
+      strokeRadius = Math.round((45 - strokeVal) / 15) + 1;
     } else if (strokeVal > 55) {
       strokeMode = 2;
-      strokeRadius = Math.round((strokeVal - 55) / 15); // 1 ~ 3 像素
+      strokeRadius = Math.round((strokeVal - 55) / 15);
     }
 
     const gray = new Uint8ClampedArray(w * h);
@@ -160,13 +156,12 @@
       binary[i] = gray[i] < actualThreshold ? 1 : 0;
     }
 
-    // 筆劃細化 (Erosion) 或膨脹 (Dilation)
     if (strokeMode > 0 && strokeRadius > 0) {
       const tempBin = new Uint8ClampedArray(binary);
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const idx = y * w + x;
-          if (strokeMode === 2) { // 膨脹 (加粗)
+          if (strokeMode === 2) { 
             if (tempBin[idx] === 1) {
               for (let dy = -strokeRadius; dy <= strokeRadius; dy++) {
                 for (let dx = -strokeRadius; dx <= strokeRadius; dx++) {
@@ -175,7 +170,7 @@
                 }
               }
             }
-          } else if (strokeMode === 1) { // 侵蝕 (變細)
+          } else if (strokeMode === 1) { 
             if (tempBin[idx] === 1) {
               let shouldClear = false;
               for (let dy = -strokeRadius; dy <= strokeRadius && !shouldClear; dy++) {
@@ -476,28 +471,25 @@
   $('downloadBtn').addEventListener('click', () => {
     render(true);
 
-    const opt = $('exportResolution').value;
+    const targetWidth = parseInt($('exportResolution').value, 10);
     let exportCanvas = mainCanvas;
 
-    if (opt !== 'original') {
-      const targetWidth = parseInt(opt, 10);
-      if (mainCanvas.width > targetWidth) {
-        const scaleFactor = targetWidth / mainCanvas.width;
-        const targetHeight = Math.round(mainCanvas.height * scaleFactor);
+    if (mainCanvas.width > targetWidth) {
+      const scaleFactor = targetWidth / mainCanvas.width;
+      const targetHeight = Math.round(mainCanvas.height * scaleFactor);
 
-        exportCanvas = document.createElement('canvas');
-        exportCanvas.width = targetWidth;
-        exportCanvas.height = targetHeight;
-        const exCtx = exportCanvas.getContext('2d');
+      exportCanvas = document.createElement('canvas');
+      exportCanvas.width = targetWidth;
+      exportCanvas.height = targetHeight;
+      const exCtx = exportCanvas.getContext('2d');
 
-        exCtx.imageSmoothingEnabled = true;
-        exCtx.imageSmoothingQuality = 'high';
-        exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
-      }
+      exCtx.imageSmoothingEnabled = true;
+      exCtx.imageSmoothingQuality = 'high';
+      exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
     }
 
     const a = document.createElement('a');
-    a.download = `calligraphy_v0.36-c_${exportCanvas.width}p.png`;
+    a.download = `calligraphy_v0.36-d_${targetWidth}p.png`;
     a.href = exportCanvas.toDataURL('image/png');
     a.click();
 
