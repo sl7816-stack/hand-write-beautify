@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.5-1)</title>
+  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.5-2)</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -48,7 +48,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.5-1 標靶修復版</span>
+    <span class="tag">v0.3.5-2 精準防破洞版</span>
   </header>
 
   <div class="btn-group">
@@ -85,7 +85,7 @@
       </div>
 
       <div>
-        <label>筆劃內部填補力道 (防破洞) <span class="val" id="holeFillVal">50</span></label>
+        <label>筆劃內部填補力道 (精準防破洞) <span class="val" id="holeFillVal">50</span></label>
         <input type="range" id="holeFillStrength" min="0" max="100" value="50">
       </div>
 
@@ -154,7 +154,7 @@
   </div>
 </div>
 
-<!-- Web Worker 獨立線程演算法 V0.3.5-1 標靶修復版 -->
+<!-- Web Worker 獨立線程演算法 V0.3.5-2 精準防破洞版 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
     const { 
@@ -241,7 +241,6 @@
           let calcAlpha = (mode === 'calligraphy') ? Math.min(255, (threshold - rawGray) * 16) : Math.min(255, (threshold - rawGray) * 28);
           alphaMap[idx] = calcAlpha;
 
-          // [修復 1] 提高強墨色認定門檻，灰階必須小於 100 且 Alpha 大於 180，避免折痕被算入強墨色
           if (rawGray < 100 && calcAlpha > 180) {
             isStrongInk[idx] = 1;
           }
@@ -251,55 +250,54 @@
       }
     }
 
-    // [修復 2] 筆劃內部填補力道：採用形態學閉運算 (Dilation -> Erosion) 填補破洞
+    // [v0.3.5-2 精準防破洞重構] 採用邊界鎖定與 Flood Fill 淹水法，只填補字體內部孔洞，外輪廓絕對不腫脹
     if (holeFillStrength > 0) {
-      const radius = Math.max(1, Math.floor((holeFillStrength / 100) * 12)); // 半徑放大至 1~12px
-      let dilated = new Uint8Array(w * h);
+      let isBackground = new Uint8Array(w * h);
+      let queue = new Int32Array(w * h);
+      let qHead = 0, qTail = 0;
 
-      // 1. 膨脹 (Dilation)
+      // 1. 將圖片四周四個邊界上的「非筆劃畫素」放進 Flood Fill 佇列
+      for (let x = 0; x < w; x++) {
+        if (alphaMap[x] < 50) { isBackground[x] = 1; queue[qTail++] = x; }
+        let bIdx = (h - 1) * w + x;
+        if (alphaMap[bIdx] < 50 && !isBackground[bIdx]) { isBackground[bIdx] = 1; queue[qTail++] = bIdx; }
+      }
       for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          let maxVal = 0;
-          for (let dy = -radius; dy <= radius; dy++) {
-            let ny = y + dy;
-            if (ny < 0 || ny >= h) continue;
-            for (let dx = -radius; dx <= radius; dx++) {
-              let nx = x + dx;
-              if (nx < 0 || nx >= w) continue;
-              let val = alphaMap[ny * w + nx];
-              if (val > maxVal) maxVal = val;
-            }
+        let lIdx = y * w;
+        if (alphaMap[lIdx] < 50 && !isBackground[lIdx]) { isBackground[lIdx] = 1; queue[qTail++] = lIdx; }
+        let rIdx = y * w + (w - 1);
+        if (alphaMap[rIdx] < 50 && !isBackground[rIdx]) { isBackground[rIdx] = 1; queue[qTail++] = rIdx; }
+      }
+
+      // 2. BFS 淹水蔓延，標記所有能從外部連通到的真正背景
+      while (qHead < qTail) {
+        let curr = queue[qHead++];
+        let cx = curr % w, cy = Math.floor(curr / w);
+
+        let neighbors = [
+          (cy > 0) ? (cy - 1) * w + cx : -1,
+          (cy < h - 1) ? (cy + 1) * w + cx : -1,
+          (cx > 0) ? cy * w + (cx - 1) : -1,
+          (cx < w - 1) ? cy * w + (cx + 1) : -1
+        ];
+
+        for (let nIdx of neighbors) {
+          if (nIdx >= 0 && !isBackground[nIdx] && alphaMap[nIdx] < 50) {
+            isBackground[nIdx] = 1;
+            queue[qTail++] = nIdx;
           }
-          dilated[y * w + x] = maxVal;
         }
       }
 
-      // 2. 侵蝕 (Erosion) 回復原邊緣，但保留內部填補
-      let closed = new Uint8Array(w * h);
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          let minVal = 255;
-          for (let dy = -radius; dy <= radius; dy++) {
-            let ny = y + dy;
-            if (ny < 0 || ny >= h) continue;
-            for (let dx = -radius; dx <= radius; dx++) {
-              let nx = x + dx;
-              if (nx < 0 || nx >= w) continue;
-              let val = dilated[ny * w + nx];
-              if (val < minVal) minVal = val;
-            }
-          }
-          closed[y * w + x] = minVal;
-        }
-      }
-
-      // 保留原本強 Alpha，弱 Alpha 融合填補結果
+      // 3. 凡是「未被水流淹到」且「 Alpha 低於門檻」的區域，即為完全封閉或半封閉的內部破洞，進行精準填補
+      const fillAlphaTarget = Math.floor(200 * (holeFillStrength / 100));
       for (let i = 0; i < w * h; i++) {
-        alphaMap[i] = Math.max(alphaMap[i], closed[i]);
+        if (!isBackground[i]) {
+          alphaMap[i] = Math.max(alphaMap[i], fillAlphaTarget);
+        }
       }
     }
 
-    // [修復 3] 背景折痕過濾強度：搜尋半徑放大至 3~25px，對孤立折痕強制清零
     if (creaseFilterStrength > 0) {
       const searchR = Math.max(3, Math.floor((creaseFilterStrength / 100) * 22)); 
       let cleanAlphaMap = new Uint8Array(w * h);
@@ -316,7 +314,7 @@
           }
 
           let hasInkNearby = false;
-          for (let dy = -searchR; dy <= searchR; dy += 2) { // 步進取樣加速
+          for (let dy = -searchR; dy <= searchR; dy += 2) {
             let ny = y + dy;
             if (ny < 0 || ny >= h) continue;
             for (let dx = -searchR; dx <= searchR; dx += 2) {
@@ -333,7 +331,7 @@
           if (hasInkNearby) {
             cleanAlphaMap[idx] = a;
           } else {
-            cleanAlphaMap[idx] = 0; // 無強墨跡靠近，視為折痕刪除
+            cleanAlphaMap[idx] = 0;
           }
         }
       }
@@ -654,7 +652,7 @@
     }
 
     const a = document.createElement('a');
-    a.download = `handwriting_v0.3.5-1_${exportCanvas.width}p.png`;
+    a.download = `handwriting_v0.3.5-2_${exportCanvas.width}p.png`;
     a.href = exportCanvas.toDataURL('image/png');
     a.click();
 
