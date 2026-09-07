@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.5)</title>
+  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.5-1)</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -48,7 +48,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.5 獨立雙控版</span>
+    <span class="tag">v0.3.5-1 標靶修復版</span>
   </header>
 
   <div class="btn-group">
@@ -84,7 +84,6 @@
         <input type="range" id="sensitivity" min="0" max="100" value="50">
       </div>
 
-      <!-- v0.3.5 新增：用戶自主控制 筆劃填補 與 折痕過濾 -->
       <div>
         <label>筆劃內部填補力道 (防破洞) <span class="val" id="holeFillVal">50</span></label>
         <input type="range" id="holeFillStrength" min="0" max="100" value="50">
@@ -155,7 +154,7 @@
   </div>
 </div>
 
-<!-- Web Worker 獨立線程演算法 V0.3.5 獨立操控雙參數版 -->
+<!-- Web Worker 獨立線程演算法 V0.3.5-1 標靶修復版 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
     const { 
@@ -242,7 +241,8 @@
           let calcAlpha = (mode === 'calligraphy') ? Math.min(255, (threshold - rawGray) * 16) : Math.min(255, (threshold - rawGray) * 28);
           alphaMap[idx] = calcAlpha;
 
-          if (rawGray < 145 || calcAlpha > 140) {
+          // [修復 1] 提高強墨色認定門檻，灰階必須小於 100 且 Alpha 大於 180，避免折痕被算入強墨色
+          if (rawGray < 100 && calcAlpha > 180) {
             isStrongInk[idx] = 1;
           }
         } else {
@@ -251,43 +251,57 @@
       }
     }
 
-    // === 1. 用戶控制：筆劃內部填補力道（防破洞） ===
+    // [修復 2] 筆劃內部填補力道：採用形態學閉運算 (Dilation -> Erosion) 填補破洞
     if (holeFillStrength > 0) {
-      let filledAlpha = new Uint8Array(w * h);
-      filledAlpha.set(alphaMap);
-      const fillRadius = Math.max(1, Math.min(5, Math.floor((holeFillStrength / 100) * 5)));
-      const requiredRatio = 0.65 - (holeFillStrength / 100) * 0.35; // 強度越高，要求周圍筆劃比例越低
+      const radius = Math.max(1, Math.floor((holeFillStrength / 100) * 12)); // 半徑放大至 1~12px
+      let dilated = new Uint8Array(w * h);
 
-      for (let y = fillRadius; y < h - fillRadius; y++) {
-        for (let x = fillRadius; x < w - fillRadius; x++) {
-          let idx = y * w + x;
-          if (alphaMap[idx] < 80) {
-            let solidNeighbors = 0, sumAlpha = 0, totalCheck = 0;
-
-            for (let dy = -fillRadius; dy <= fillRadius; dy++) {
-              for (let dx = -fillRadius; dx <= fillRadius; dx++) {
-                if (dx === 0 && dy === 0) continue;
-                let nAlpha = alphaMap[(y + dy) * w + (x + dx)];
-                totalCheck++;
-                if (nAlpha > 60) {
-                  solidNeighbors++;
-                  sumAlpha += nAlpha;
-                }
-              }
-            }
-
-            if (solidNeighbors / totalCheck >= requiredRatio) {
-              filledAlpha[idx] = Math.max(160, Math.floor(sumAlpha / solidNeighbors));
+      // 1. 膨脹 (Dilation)
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let maxVal = 0;
+          for (let dy = -radius; dy <= radius; dy++) {
+            let ny = y + dy;
+            if (ny < 0 || ny >= h) continue;
+            for (let dx = -radius; dx <= radius; dx++) {
+              let nx = x + dx;
+              if (nx < 0 || nx >= w) continue;
+              let val = alphaMap[ny * w + nx];
+              if (val > maxVal) maxVal = val;
             }
           }
+          dilated[y * w + x] = maxVal;
         }
       }
-      alphaMap = filledAlpha;
+
+      // 2. 侵蝕 (Erosion) 回復原邊緣，但保留內部填補
+      let closed = new Uint8Array(w * h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let minVal = 255;
+          for (let dy = -radius; dy <= radius; dy++) {
+            let ny = y + dy;
+            if (ny < 0 || ny >= h) continue;
+            for (let dx = -radius; dx <= radius; dx++) {
+              let nx = x + dx;
+              if (nx < 0 || nx >= w) continue;
+              let val = dilated[ny * w + nx];
+              if (val < minVal) minVal = val;
+            }
+          }
+          closed[y * w + x] = minVal;
+        }
+      }
+
+      // 保留原本強 Alpha，弱 Alpha 融合填補結果
+      for (let i = 0; i < w * h; i++) {
+        alphaMap[i] = Math.max(alphaMap[i], closed[i]);
+      }
     }
 
-    // === 2. 用戶控制：背景折痕過濾強度（防折痕） ===
-    if (creaseFilterStrength > 0 && enableStrictBlack) {
-      const searchR = Math.max(2, Math.min(8, Math.floor((creaseFilterStrength / 100) * 8)));
+    // [修復 3] 背景折痕過濾強度：搜尋半徑放大至 3~25px，對孤立折痕強制清零
+    if (creaseFilterStrength > 0) {
+      const searchR = Math.max(3, Math.floor((creaseFilterStrength / 100) * 22)); 
       let cleanAlphaMap = new Uint8Array(w * h);
 
       for (let y = 0; y < h; y++) {
@@ -302,10 +316,10 @@
           }
 
           let hasInkNearby = false;
-          for (let dy = -searchR; dy <= searchR; dy++) {
+          for (let dy = -searchR; dy <= searchR; dy += 2) { // 步進取樣加速
             let ny = y + dy;
             if (ny < 0 || ny >= h) continue;
-            for (let dx = -searchR; dx <= searchR; dx++) {
+            for (let dx = -searchR; dx <= searchR; dx += 2) {
               let nx = x + dx;
               if (nx < 0 || nx >= w) continue;
               if (isStrongInk[ny * w + nx]) {
@@ -319,7 +333,7 @@
           if (hasInkNearby) {
             cleanAlphaMap[idx] = a;
           } else {
-            cleanAlphaMap[idx] = 0;
+            cleanAlphaMap[idx] = 0; // 無強墨跡靠近，視為折痕刪除
           }
         }
       }
@@ -640,7 +654,7 @@
     }
 
     const a = document.createElement('a');
-    a.download = `handwriting_v0.3.5_${exportCanvas.width}p.png`;
+    a.download = `handwriting_v0.3.5-1_${exportCanvas.width}p.png`;
     a.href = exportCanvas.toDataURL('image/png');
     a.click();
 
