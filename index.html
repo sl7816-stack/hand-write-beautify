@@ -1,396 +1,564 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>書法集字格化工具 v0.32-1 完整版</title>
-    <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --panel-bg: #ffffff;
-            --primary-color: #2c3e50;
-            --accent-color: #2980b9;
-            --border-color: #e9ecef;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 360px 1fr;
-            gap: 20px;
-        }
-        .panel {
-            background: var(--panel-bg);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color);
-        }
-        .panel h3 {
-            margin-top: 0;
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 8px;
-        }
-        .control-group {
-            margin-bottom: 14px;
-        }
-        label {
-            display: flex;
-            justify-content: space-between;
-            font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 13px;
-        }
-        .val-tag {
-            color: var(--accent-color);
-            font-weight: bold;
-        }
-        input[type="range"], select {
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .section-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #555;
-            margin: 16px 0 8px 0;
-            padding-left: 6px;
-            border-left: 3px solid var(--accent-color);
-        }
-        .preview-area {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e5e5e5;
-            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border-radius: 10px;
-            min-height: 600px;
-            overflow: auto;
-        }
-        canvas {
-            max-width: 100%;
-            max-height: 85vh;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-        .btn {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            font-weight: bold;
-            font-size: 15px;
-            margin-top: 15px;
-            transition: background 0.2s;
-        }
-        .btn:hover {
-            background-color: #1c5980;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>書法集字去背與數位化工具 v0.32-1 完整版</title>
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="手寫去背">
+  <link rel="manifest" id="manifestPlaceholder">
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a; --card: #1e293b; --border: #334155;
+      --text: #f8fafc; --muted: #94a3b8; --primary: #38bdf8; --accent: #6366f1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 16px 12px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 640px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    h2 { font-size: 1.2rem; }
+    .tag { background: rgba(56, 189, 248, 0.1); color: var(--primary); border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+    .btn-group { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn { background: #334155; color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; flex: 1; text-align: center; }
+    .btn:hover:not(:disabled) { background: #475569; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .section { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .sec-title { font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 10px; text-transform: uppercase; border-left: 3px solid var(--primary); padding-left: 6px; }
+    .ctrl-grid { display: flex; flex-direction: column; gap: 10px; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    label { font-size: 0.85rem; display: flex; justify-content: space-between; width: 100%; }
+    .val { color: var(--primary); font-family: monospace; font-weight: bold; }
+    input[type="file"], select, input[type="color"] { background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; outline: none; }
+    input[type="file"] { width: 100%; }
+    input[type="range"] { width: 100%; accent-color: var(--primary); }
+    select { flex: 1; }
+    input[type="color"] { padding: 2px; width: 36px; height: 32px; cursor: pointer; }
+    .canvas-wrap { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #1e293b; min-height: 240px; position: relative; display: flex; justify-content: center; align-items: center; }
+    canvas { max-width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
+    .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 10px; cursor: pointer; }
+    #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; z-index: 10; }
+  </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- 左側完整控制面板 -->
-    <div class="panel">
-        <h3>v0.32-1 完整控制項</h3>
-        
-        <div class="control-group">
-            <label for="imageLoader">選擇圖片</label>
-            <input type="file" id="imageLoader" accept="image/*">
-        </div>
+  <header>
+    <h2>書法集字去背與數位化工具</h2>
+    <span class="tag">v0.32-1 完整 UI 版</span>
+  </header>
 
-        <div class="control-group">
-            <label for="modeSelect">筆藝模式</label>
-            <select id="modeSelect">
-                <option value="calligraphy">毛筆/大字 (強調黑度與邊緣)</option>
-                <option value="hardpen">硬筆/鋼筆 (高靈敏細筆劃)</option>
-            </select>
-        </div>
+  <div class="btn-group">
+    <button class="btn" id="undoBtn" disabled>↩ 上一步</button>
+    <button class="btn" id="redoBtn" disabled>↪ 下一步</button>
+  </div>
 
-        <!-- v0.3.2 完整調校參數群 -->
-        <div class="section-title">自適應門檻與去背景</div>
-        <div class="control-group">
-            <label>自適應門檻 (Offset) <span class="val-tag" id="v_threshold">15</span></label>
-            <input type="range" id="threshold" min="1" max="60" value="15">
-        </div>
+  <div class="section">
+    <div class="sec-title">1. 上傳手寫字照片</div>
+    <input type="file" id="textInput" accept="image/*,.heic,.HEIC">
+  </div>
 
-        <div class="section-title">深層去陰影 (Depth De-shadow)</div>
-        <div class="control-group">
-            <label>陰影壓制強度 <span class="val-tag" id="v_shadowSuppress">20</span></label>
-            <input type="range" id="shadowSuppress" min="0" max="50" value="20">
-        </div>
+  <div class="section">
+    <div class="sec-title">2. 筆藝模式與 v0.3.2 演算法參數</div>
+    <div class="ctrl-grid">
+      <select id="modeSelect">
+        <option value="calligraphy">毛筆 / 大字模式（強調墨韻與筆劃邊緣）</option>
+        <option value="hardpen">硬筆 / 鋼筆模式（高靈敏細筆劃）</option>
+      </select>
 
-        <div class="section-title">雙黑度門檻 (Dual Blackness)</div>
-        <div class="control-group">
-            <label>強墨色臨界值 (Strong Ink) <span class="val-tag" id="v_blackLow">80</span></label>
-            <input type="range" id="blackLow" min="10" max="150" value="80">
-        </div>
-        <div class="control-group">
-            <label>淡墨色臨界值 (Light Ink) <span class="val-tag" id="v_blackHigh">160</span></label>
-            <input type="range" id="blackHigh" min="80" max="230" value="160">
-        </div>
+      <div>
+        <label>自適應門檻 (Offset) <span class="val" id="v_threshold">15</span></label>
+        <input type="range" id="threshold" min="1" max="60" value="15">
+      </div>
 
-        <div class="section-title">彩度判斷 (Saturation Filter)</div>
-        <div class="control-group">
-            <label>彩色印章/紙張過濾 <span class="val-tag" id="v_satThreshold">30</span></label>
-            <input type="range" id="satThreshold" min="0" max="100" value="30">
-        </div>
+      <div>
+        <label>深層去陰影強度 (Depth De-shadow) <span class="val" id="v_shadowSuppress">20</span></label>
+        <input type="range" id="shadowSuppress" min="0" max="50" value="20">
+      </div>
 
-        <div class="section-title">多階段雜訊過濾 (Noise Filter)</div>
-        <div class="control-group">
-            <label>鄰域點陣統計 (v0.3.2) <span class="val-tag" id="v_noiseFilter">3</span></label>
-            <input type="range" id="noiseFilter" min="0" max="8" value="3">
-        </div>
+      <div>
+        <label>強墨色臨界值 (Strong Ink) <span class="val" id="v_blackLow">80</span></label>
+        <input type="range" id="blackLow" min="10" max="150" value="80">
+      </div>
 
-        <!-- v0.3.3 移植：高清解析度限制 -->
-        <div class="section-title">輸出高解析鏈 (v0.3.3)</div>
-        <div class="control-group">
-            <label for="exportResolution">匯出解析度限制</label>
-            <select id="exportResolution">
-                <option value="original" selected>原圖尺寸 (Original)</option>
-                <option value="3840">4K (UHD - 3840px)</option>
-                <option value="2560">2K (QHD - 2560px)</option>
-                <option value="1920">1080p (FHD - 1920px)</option>
-                <option value="1280">720p (HD - 1280px)</option>
-            </select>
-        </div>
+      <div>
+        <label>淡墨色臨界值 (Light Ink) <span class="val" id="v_blackHigh">160</span></label>
+        <input type="range" id="blackHigh" min="80" max="230" value="160">
+      </div>
 
-        <button class="btn" id="downloadBtn">下載去背高解析圖</button>
+      <div>
+        <label>彩色印章/紙張過濾 (Saturation Filter) <span class="val" id="v_satThreshold">30</span></label>
+        <input type="range" id="satThreshold" min="0" max="100" value="30">
+      </div>
+
+      <div>
+        <label>鄰域點陣去雜訊 (v0.3.2 Noise Filter) <span class="val" id="v_noiseFilter">3</span></label>
+        <input type="range" id="noiseFilter" min="0" max="8" value="3">
+      </div>
+
+      <div>
+        <label>文字區塊大小 <span class="val" id="scaleVal">100%</span></label>
+        <input type="range" id="textScale" min="10" max="250" value="100">
+      </div>
+
+      <div class="row" style="justify-content: space-between;">
+        <div class="row"><span style="font-size:0.85rem;">字色</span><input type="color" id="textColor" value="#FFFFFF"></div>
+        <div class="row">
+          <span style="font-size:0.85rem;">底色</span>
+          <select id="textBgType">
+            <option value="transparent">透明</option>
+            <option value="white">白色</option>
+            <option value="black">黑色</option>
+            <option value="custom">自訂</option>
+          </select>
+          <input type="color" id="textBgColor" value="#1E293B" style="display:none;">
+        </div>
+      </div>
+
+      <button class="btn" id="resetPosBtn" style="padding:4px 8px;">置中復位</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">3. 上傳背景圖片</div>
+    <input type="file" id="bgInput" accept="image/*,.heic,.HEIC">
+  </div>
+
+  <div class="section">
+    <div class="sec-title">4. 畫布預覽與操作</div>
+    <div class="canvas-wrap">
+      <div id="loading">處理中...</div>
+      <canvas id="mainCanvas"></canvas>
     </div>
 
-    <!-- 右側預覽畫布 -->
-    <div class="panel preview-area">
-        <canvas id="mainCanvas"></canvas>
+    <div class="row" style="margin-top: 12px;">
+      <span style="font-size:0.85rem; width: 110px;">下載解析度：</span>
+      <select id="exportResolution">
+        <option value="original" selected>原圖尺寸 (Original)</option>
+        <option value="3840">4K (UHD - 3840px)</option>
+        <option value="2560">2K (QHD - 2560px)</option>
+        <option value="1920">1080p (FHD - 1920px)</option>
+        <option value="1280">720p (HD - 1280px)</option>
+      </select>
     </div>
+
+    <button class="btn-dl" id="downloadBtn">下載去背高解析圖 (無浮水印)</button>
+  </div>
 </div>
 
-<script>
-// Web Worker 核心：完整 v0.3.2 影像處理鏈
-const workerCode = `
-self.onmessage = function(e) {
+<script id="workerCode" type="javascript/worker">
+  self.onmessage = function(e) {
     const { 
-        imageData, threshold, shadowSuppress, 
-        blackLow, blackHigh, satThreshold, 
-        noiseThreshold, mode 
+      imageDataData, width: w, height: h, mode, threshold, shadowSuppress,
+      blackLow, blackHigh, satThreshold, noiseThreshold, hexColor 
     } = e.data;
-    
-    const width = imageData.width;
-    const height = imageData.height;
-    const data = imageData.data;
 
-    const gray = new Uint8ClampedArray(width * height);
-    const sat = new Uint8ClampedArray(width * height);
-    const integral = new Uint32Array(width * height);
+    const gray = new Uint8ClampedArray(w * h);
+    const sat = new Uint8ClampedArray(w * h);
+    const integral = new Uint32Array(w * h);
 
-    // 1. 彩度計算、灰階轉換與積分圖 (Integral Image)
-    for (let y = 0; y < height; y++) {
-        let sum = 0;
-        for (let x = 0; x < width; x++) {
-            const idx = (y * width + x) * 4;
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
+    // 1. 轉灰階、彩度計算與積分圖建構
+    for (let y = 0; y < h; y++) {
+      let sum = 0;
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        const r = imageDataData[idx], g = imageDataData[idx + 1], b = imageDataData[idx + 2];
 
-            // 灰階 (Rec.601)
-            const gVal = (r * 299 + g * 587 + b * 114) / 1000;
-            gray[y * width + x] = gVal;
+        const gVal = (r * 299 + g * 587 + b * 114) / 1000;
+        gray[y * w + x] = gVal;
 
-            // 彩度估算 (Max - Min) 用於過濾彩色印章/紙張色偏
-            const maxC = Math.max(r, g, b);
-            const minC = Math.min(r, g, b);
-            sat[y * width + x] = maxC - minC;
+        const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+        sat[y * w + x] = maxC - minC;
 
-            sum += gVal;
-            if (y === 0) {
-                integral[x] = sum;
-            } else {
-                integral[y * width + x] = integral[(y - 1) * width + x] + sum;
-            }
-        }
+        sum += gVal;
+        if (y === 0) integral[x] = sum;
+        else integral[y * w + x] = integral[(y - 1) * w + x] + sum;
+      }
     }
 
     function getAreaSum(x1, y1, x2, y2) {
-        x1 = Math.max(0, x1); y1 = Math.max(0, y1);
-        x2 = Math.min(width - 1, x2); y2 = Math.min(height - 1, y2);
-        let total = integral[y2 * width + x2];
-        if (x1 > 0) total -= integral[y2 * width + (x1 - 1)];
-        if (y1 > 0) total -= integral[(y1 - 1) * width + x2];
-        if (x1 > 0 && y1 > 0) total += integral[(y1 - 1) * width + (x1 - 1)];
-        return total;
+      x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+      x2 = Math.min(w - 1, x2); y2 = Math.min(h - 1, y2);
+      let total = integral[y2 * w + x2];
+      if (x1 > 0) total -= integral[y2 * w + (x1 - 1)];
+      if (y1 > 0) total -= integral[(y1 - 1) * w + x2];
+      if (x1 > 0 && y1 > 0) total += integral[(y1 - 1) * w + (x1 - 1)];
+      return total;
     }
 
     const windowSize = mode === 'hardpen' ? 15 : 35;
     const halfWin = Math.floor(windowSize / 2);
-    const binaryMask = new Uint8ClampedArray(width * height);
+    const binaryMask = new Uint8ClampedArray(w * h);
 
     // 2. 深層去陰影 + 雙黑度門檻 + 自適應二值化
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const idx = y * width + x;
-            const gVal = gray[idx];
-            const sVal = sat[idx];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        const gVal = gray[idx];
+        const sVal = sat[idx];
 
-            // 彩度過濾：若彩度過高（例如紅印章或彩色 background），直接視為背景
-            if (satThreshold > 0 && sVal > satThreshold) {
-                binaryMask[idx] = 0;
-                continue;
-            }
-
-            const count = (Math.min(width - 1, x + halfWin) - Math.max(0, x - halfWin) + 1) *
-                          (Math.min(height - 1, y + halfWin) - Math.max(0, y - halfWin) + 1);
-            const localMean = getAreaSum(x - halfWin, y - halfWin, x + halfWin, y + halfWin) / count;
-
-            // 動態自適應門檻 + 陰影壓制校正
-            const adaptiveThresh = localMean - threshold - (shadowSuppress * (1 - localMean / 255));
-
-            if (gVal < blackLow) {
-                // 強墨色區域：絕對保留
-                binaryMask[idx] = 255;
-            } else if (gVal > blackHigh) {
-                // 明亮區域：絕對背景
-                binaryMask[idx] = 0;
-            } else if (gVal < adaptiveThresh) {
-                // 中間灰階：依據區域自適應結果判斷
-                binaryMask[idx] = 255;
-            } else {
-                binaryMask[idx] = 0;
-            }
+        if (satThreshold > 0 && sVal > satThreshold) {
+          binaryMask[idx] = 0;
+          continue;
         }
+
+        const count = (Math.min(w - 1, x + halfWin) - Math.max(0, x - halfWin) + 1) *
+                      (Math.min(h - 1, y + halfWin) - Math.max(0, y - halfWin) + 1);
+        const localMean = getAreaSum(x - halfWin, y - halfWin, x + halfWin, y + halfWin) / count;
+
+        const adaptiveThresh = localMean - threshold - (shadowSuppress * (1 - localMean / 255));
+
+        if (gVal < blackLow) {
+          binaryMask[idx] = 255;
+        } else if (gVal > blackHigh) {
+          binaryMask[idx] = 0;
+        } else if (gVal < adaptiveThresh) {
+          binaryMask[idx] = 255;
+        } else {
+          binaryMask[idx] = 0;
+        }
+      }
     }
 
-    // 3. v0.3.2 多階段雜訊過濾 (鄰域點陣統計)
-    const finalData = new Uint8ClampedArray(data.length);
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-            const idx = y * width + x;
-            const pixIdx = idx * 4;
+    // 3. v0.3.2 鄰域點陣去雜訊 (Noise Filter)
+    const cr = parseInt(hexColor.slice(1, 3), 16);
+    const cg = parseInt(hexColor.slice(3, 5), 16);
+    const cb = parseInt(hexColor.slice(5, 7), 16);
+    const outputData = new Uint8ClampedArray(w * h * 4);
 
-            if (binaryMask[idx] === 255) {
-                let neighbors = 0;
-                for (let ny = -1; ny <= 1; ny++) {
-                    for (let nx = -1; nx <= 1; nx++) {
-                        if (binaryMask[(y + ny) * width + (x + nx)] === 255) neighbors++;
-                    }
-                }
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const idx = y * w + x;
+        const pixIdx = idx * 4;
 
-                // 符合鄰域點陣門檻才認定為有效墨跡
-                if (neighbors >= noiseThreshold) {
-                    finalData[pixIdx] = 0;     // R
-                    finalData[pixIdx + 1] = 0; // G
-                    finalData[pixIdx + 2] = 0; // B
-                    finalData[pixIdx + 3] = 255; // Alpha
-                } else {
-                    finalData[pixIdx + 3] = 0; // 孤立雜訊清除
-                }
-            } else {
-                finalData[pixIdx + 3] = 0; // 透明背景
+        if (binaryMask[idx] === 255) {
+          let neighbors = 0;
+          for (let ny = -1; ny <= 1; ny++) {
+            for (let nx = -1; nx <= 1; nx++) {
+              if (binaryMask[(y + ny) * w + (x + nx)] === 255) neighbors++;
             }
+          }
+
+          if (neighbors >= noiseThreshold) {
+            outputData[pixIdx] = cr;
+            outputData[pixIdx + 1] = cg;
+            outputData[pixIdx + 2] = cb;
+            outputData[pixIdx + 3] = 255;
+          } else {
+            outputData[pixIdx + 3] = 0;
+          }
+        } else {
+          outputData[pixIdx + 3] = 0;
         }
+      }
     }
 
-    self.postMessage({ result: finalData });
-};
-`;
+    self.postMessage({ outputData, width: w, height: h }, [outputData.buffer]);
+  };
+</script>
 
-// 主介面邏輯
-const workerBlob = new Blob([workerCode], { type: 'text/javascript' });
-const worker = new Worker(URL.createObjectURL(workerBlob));
-
-const canvas = document.getElementById('mainCanvas');
-const ctx = canvas.getContext('2d');
-let rawImage = null;
-
-document.getElementById('imageLoader').addEventListener('change', function(e) {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        rawImage = new Image();
-        rawImage.onload = function() {
-            processImage();
-        }
-        rawImage.src = event.target.result;
+<script>
+  (function() {
+    const manifest = { "name": "手寫字工具", "short_name": "手寫去背", "start_url": "./", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a" };
+    document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})));
+    if ('serviceWorker' in navigator) {
+      const sw = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request)));`;
+      navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type:'text/javascript'}))).catch(()=>{});
     }
-    if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
-});
+  })();
 
-function getTargetDimensions(imgWidth, imgHeight, maxLimit) {
-    if (maxLimit === 'original') return { width: imgWidth, height: imgHeight };
-    const maxBound = parseInt(maxLimit, 10);
-    if (Math.max(imgWidth, imgHeight) <= maxBound) {
-        return { width: imgWidth, height: imgHeight };
+  const worker = new Worker(URL.createObjectURL(new Blob([document.getElementById('workerCode').textContent], { type: 'text/javascript' })));
+  const mainCanvas = document.getElementById('mainCanvas');
+  const ctx = mainCanvas.getContext('2d');
+  const loading = document.getElementById('loading');
+  const processedTextCanvas = document.createElement('canvas');
+
+  let textImg = null, bgImg = null;
+  let textPosX = null, textPosY = null;
+  let isDragging = false, isPinching = false, dragStartX = 0, dragStartY = 0, initPinchDist = 0, initScalePinch = 100;
+  let debounceTimer = null, historyStack = [], historyIndex = -1, isExecHistory = false;
+
+  const $ = id => document.getElementById(id);
+
+  function showLoading(show, text="處理中...") { loading.textContent = text; loading.style.display = show ? 'flex' : 'none'; }
+
+  async function processFile(file) {
+    if ((file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') && typeof heic2any !== 'undefined') {
+      showLoading(true, "HEIC 轉碼中...");
+      try {
+        const res = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+        return Array.isArray(res) ? res[0] : res;
+      } catch (e) { alert("HEIC 轉碼失敗"); showLoading(false); return null; }
     }
-    const scale = maxBound / Math.max(imgWidth, imgHeight);
+    return file;
+  }
+
+  function getUIState() {
     return {
-        width: Math.round(imgWidth * scale),
-        height: Math.round(imgHeight * scale)
+      mode: $('modeSelect').value,
+      threshold: $('threshold').value,
+      shadowSuppress: $('shadowSuppress').value,
+      blackLow: $('blackLow').value,
+      blackHigh: $('blackHigh').value,
+      satThreshold: $('satThreshold').value,
+      noiseFilter: $('noiseFilter').value,
+      textScale: $('textScale').value, textColor: $('textColor').value,
+      textBgType: $('textBgType').value, textBgColor: $('textBgColor').value,
+      textPosX, textPosY, textSrc: textImg?.src, bgSrc: bgImg?.src
     };
-}
+  }
 
-function processImage() {
-    if (!rawImage) return;
+  function saveState() {
+    if (isExecHistory) return;
+    historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(getUIState());
+    historyIndex = historyStack.length - 1;
+    $('undoBtn').disabled = historyIndex <= 0;
+    $('redoBtn').disabled = historyIndex >= historyStack.length - 1;
+  }
 
-    const resSetting = document.getElementById('exportResolution').value;
-    const targetSize = getTargetDimensions(rawImage.width, rawImage.height, resSetting);
+  function applyState(st) {
+    isExecHistory = true;
+    $('modeSelect').value = st.mode;
+    $('threshold').value = st.threshold; $('v_threshold').textContent = st.threshold;
+    $('shadowSuppress').value = st.shadowSuppress; $('v_shadowSuppress').textContent = st.shadowSuppress;
+    $('blackLow').value = st.blackLow; $('v_blackLow').textContent = st.blackLow;
+    $('blackHigh').value = st.blackHigh; $('v_blackHigh').textContent = st.blackHigh;
+    $('satThreshold').value = st.satThreshold; $('v_satThreshold').textContent = st.satThreshold;
+    $('noiseFilter').value = st.noiseFilter; $('v_noiseFilter').textContent = st.noiseFilter;
+    $('textScale').value = st.textScale; $('scaleVal').textContent = st.textScale + '%';
+    $('textColor').value = st.textColor; $('textBgType').value = st.textBgType;
+    $('textBgColor').value = st.textBgColor;
+    $('textBgColor').style.display = (st.textBgType === 'custom') ? 'inline-block' : 'none';
+    textPosX = st.textPosX; textPosY = st.textPosY;
 
-    canvas.width = targetSize.width;
-    canvas.height = targetSize.height;
+    let p = [];
+    if (st.textSrc) p.push(new Promise(r => { textImg = new Image(); textImg.onload = r; textImg.src = st.textSrc; }));
+    else textImg = null;
+    if (st.bgSrc) p.push(new Promise(r => { bgImg = new Image(); bgImg.onload = r; bgImg.src = st.bgSrc; }));
+    else bgImg = null;
 
-    ctx.drawImage(rawImage, 0, 0, targetSize.width, targetSize.height);
-    const imageData = ctx.getImageData(0, 0, targetSize.width, targetSize.height);
+    Promise.all(p).then(() => {
+      if (textImg) processText(); else render();
+      isExecHistory = false;
+      $('undoBtn').disabled = historyIndex <= 0;
+      $('redoBtn').disabled = historyIndex >= historyStack.length - 1;
+    });
+  }
 
-    // 傳送全套 v0.3.2 參數至 Web Worker
+  function processText() {
+    if (!textImg) return;
+    showLoading(true, "去背運算中...");
+    const temp = document.createElement('canvas');
+    temp.width = textImg.width; temp.height = textImg.height;
+    const tCtx = temp.getContext('2d');
+    tCtx.drawImage(textImg, 0, 0);
+    const imgData = tCtx.getImageData(0, 0, temp.width, temp.height);
+
     worker.postMessage({
-        imageData: imageData,
-        threshold: parseInt(document.getElementById('threshold').value, 10),
-        shadowSuppress: parseInt(document.getElementById('shadowSuppress').value, 10),
-        blackLow: parseInt(document.getElementById('blackLow').value, 10),
-        blackHigh: parseInt(document.getElementById('blackHigh').value, 10),
-        satThreshold: parseInt(document.getElementById('satThreshold').value, 10),
-        noiseThreshold: parseInt(document.getElementById('noiseFilter').value, 10),
-        mode: document.getElementById('modeSelect').value
+      imageDataData: imgData.data, width: temp.width, height: temp.height,
+      mode: $('modeSelect').value,
+      threshold: parseInt($('threshold').value, 10),
+      shadowSuppress: parseInt($('shadowSuppress').value, 10),
+      blackLow: parseInt($('blackLow').value, 10),
+      blackHigh: parseInt($('blackHigh').value, 10),
+      satThreshold: parseInt($('satThreshold').value, 10),
+      noiseThreshold: parseInt($('noiseFilter').value, 10),
+      hexColor: $('textColor').value
     });
-}
+  }
 
-worker.onmessage = function(e) {
-    const renderedData = new ImageData(e.data.result, canvas.width, canvas.height);
-    ctx.putImageData(renderedData, 0, 0);
-};
+  worker.onmessage = function(e) {
+    const { outputData, width, height } = e.data;
+    processedTextCanvas.width = width; processedTextCanvas.height = height;
+    const pCtx = processedTextCanvas.getContext('2d');
+    const imgData = pCtx.createImageData(width, height);
+    imgData.data.set(outputData);
+    pCtx.putImageData(imgData, 0, 0);
+    showLoading(false);
+    render();
+  };
 
-// 滑桿數值即時顯示與事件監聽
-const controls = ['threshold', 'shadowSuppress', 'blackLow', 'blackHigh', 'satThreshold', 'noiseFilter'];
-controls.forEach(id => {
-    const input = document.getElementById(id);
-    const valTag = document.getElementById('v_' + id);
-    input.addEventListener('input', function() {
-        if (valTag) valTag.textContent = this.value;
-        processImage();
+  function drawPreviewWatermark(targetCtx, w, h) {
+    targetCtx.save();
+    const fontSize = Math.max(16, Math.floor(w / 18));
+    targetCtx.font = `bold ${fontSize}px sans-serif`;
+    targetCtx.textAlign = 'center';
+    targetCtx.textBaseline = 'middle';
+
+    const points = [
+      { x: w * 0.25, y: h * 0.25 }, { x: w * 0.75, y: h * 0.25 },
+      { x: w * 0.25, y: h * 0.50 }, { x: w * 0.75, y: h * 0.50 },
+      { x: w * 0.25, y: h * 0.75 }, { x: w * 0.75, y: h * 0.75 }
+    ];
+
+    points.forEach(pt => {
+      targetCtx.save();
+      targetCtx.translate(pt.x, pt.y);
+      targetCtx.rotate(-25 * Math.PI / 180);
+      targetCtx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+      targetCtx.lineWidth = Math.max(2, fontSize / 10);
+      targetCtx.strokeText('預覽專用 PREVIEW', 0, 0);
+      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+      targetCtx.fillText('預覽專用 PREVIEW', 0, 0);
+      targetCtx.restore();
     });
-});
+    targetCtx.restore();
+  }
 
-['modeSelect', 'exportResolution'].forEach(id => {
-    document.getElementById(id).addEventListener('change', processImage);
-});
+  function render(isExport = false) {
+    let tw = bgImg ? bgImg.width : (textImg ? textImg.width : 500);
+    let th = bgImg ? bgImg.height : (textImg ? textImg.height : 350);
+    mainCanvas.width = tw; mainCanvas.height = th;
 
-// 下載圖檔
-document.getElementById('downloadBtn').addEventListener('click', function() {
-    if (!rawImage) return;
-    const link = document.createElement('a');
-    link.download = `calligraphy_v0.32-1_${canvas.width}x${canvas.height}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-});
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    if (bgImg) ctx.drawImage(bgImg, 0, 0, tw, th);
+    else ctx.clearRect(0, 0, tw, th);
+
+    if (textImg) {
+      const rw = processedTextCanvas.width * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * (parseInt($('textScale').value, 10) / 100));
+      const rh = processedTextCanvas.height * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * (parseInt($('textScale').value, 10) / 100));
+      if (textPosX === null) textPosX = (tw - rw) / 2;
+      if (textPosY === null) textPosY = (th - rh) / 2;
+
+      const bgType = $('textBgType').value;
+      if (bgType !== 'transparent') {
+        ctx.fillStyle = (bgType === 'black') ? '#000000' : (bgType === 'white' ? '#ffffff' : $('textBgColor').value);
+        ctx.fillRect(textPosX, textPosY, rw, rh);
+      }
+      ctx.drawImage(processedTextCanvas, textPosX, textPosY, rw, rh);
+    }
+
+    if (!isExport && (textImg || bgImg)) {
+      drawPreviewWatermark(ctx, tw, th);
+    }
+  }
+
+  $('textInput').addEventListener('change', async (e) => {
+    const f = await processFile(e.target.files[0]);
+    if (!f) return;
+    showLoading(true, "載入中...");
+    const r = new FileReader();
+    r.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxD = 1200; let w = img.width, h = img.height;
+        if (w > maxD || h > maxD) { if (w > h) { h = Math.round(h * maxD / w); w = maxD; } else { w = Math.round(w * maxD / h); h = maxD; } }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        textImg = new Image();
+        textImg.onload = () => { textPosX = null; textPosY = null; processText(); saveState(); };
+        textImg.src = c.toDataURL('image/png');
+      };
+      img.src = evt.target.result;
+    };
+    r.readAsDataURL(f);
+  });
+
+  $('bgInput').addEventListener('change', async (e) => {
+    const f = await processFile(e.target.files[0]);
+    if (!f) return;
+    showLoading(true, "載入背景...");
+    const r = new FileReader();
+    r.onload = (evt) => { bgImg = new Image(); bgImg.onload = () => { showLoading(false); render(); saveState(); }; bgImg.src = evt.target.result; };
+    r.readAsDataURL(f);
+  });
+
+  const triggerDebounce = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { if (textImg) processText(); }, 120); };
+
+  const sliderIds = ['threshold', 'shadowSuppress', 'blackLow', 'blackHigh', 'satThreshold', 'noiseFilter'];
+  sliderIds.forEach(id => {
+    $(id).addEventListener('input', (e) => {
+      $('v_' + id).textContent = e.target.value;
+      triggerDebounce();
+    });
+    $(id).addEventListener('change', saveState);
+  });
+
+  $('textScale').addEventListener('input', (e) => { $('scaleVal').textContent = e.target.value + '%'; render(); });
+  $('textScale').addEventListener('change', saveState);
+
+  $('modeSelect').addEventListener('change', () => { if (textImg) processText(); saveState(); });
+  $('textColor').addEventListener('change', () => { if (textImg) processText(); saveState(); });
+
+  $('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });
+  $('textBgColor').addEventListener('change', () => { render(); saveState(); });
+
+  $('undoBtn').addEventListener('click', () => { if (historyIndex > 0) applyState(historyStack[--historyIndex]); });
+  $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });
+  $('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
+
+  // v0.3.3 解析度輸出鏈整合
+  $('downloadBtn').addEventListener('click', () => {
+    render(true);
+
+    const opt = $('exportResolution').value;
+    let exportCanvas = mainCanvas;
+
+    if (opt !== 'original') {
+      const targetWidth = parseInt(opt, 10);
+      if (mainCanvas.width > targetWidth) {
+        const scaleFactor = targetWidth / mainCanvas.width;
+        const targetHeight = Math.round(mainCanvas.height * scaleFactor);
+
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width = targetWidth;
+        exportCanvas.height = targetHeight;
+        const exCtx = exportCanvas.getContext('2d');
+
+        exCtx.imageSmoothingEnabled = true;
+        exCtx.imageSmoothingQuality = 'high';
+        exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
+      }
+    }
+
+    const a = document.createElement('a');
+    a.download = `calligraphy_v0.32-1_${exportCanvas.width}p.png`;
+    a.href = exportCanvas.toDataURL('image/png');
+    a.click();
+
+    render(false);
+  });
+
+  function getPos(e) {
+    const rect = mainCanvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - rect.left) * (mainCanvas.width / rect.width), y: (cy - rect.top) * (mainCanvas.height / rect.height) };
+  }
+
+  mainCanvas.addEventListener('mousedown', (e) => { if (!textImg) return; isDragging = true; const p = getPos(e); dragStartX = p.x - (textPosX||0); dragStartY = p.y - (textPosY||0); });
+  window.addEventListener('mousemove', (e) => { if (isDragging) { const p = getPos(e); textPosX = p.x - dragStartX; textPosY = p.y - dragStartY; render(); } });
+  window.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; saveState(); } });
+
+  mainCanvas.addEventListener('touchstart', (e) => {
+    if (!textImg) return;
+    if (e.touches.length === 2) { isPinching = true; isDragging = false; initPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); initScalePinch = parseInt($('textScale').value, 10); }
+    else { isDragging = true; const p = getPos(e); dragStartX = p.x - (textPosX||0); dragStartY = p.y - (textPosY||0); }
+  }, { passive: false });
+
+  window.addEventListener('touchmove', (e) => {
+    if (isPinching && e.touches.length === 2) {
+      e.preventDefault();
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      let nScale = Math.max(10, Math.min(250, Math.round(initScalePinch * (dist / initPinchDist))));
+      $('textScale').value = nScale; $('scaleVal').textContent = nScale + '%'; render();
+    } else if (isDragging) {
+      e.preventDefault(); const p = getPos(e); textPosX = p.x - dragStartX; textPosY = p.y - dragStartY; render();
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', () => { if (isDragging || isPinching) { isDragging = false; isPinching = false; saveState(); } });
+
+  mainCanvas.width = 500; mainCanvas.height = 350;
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, 500, 350);
+  ctx.fillStyle = '#64748b'; ctx.font = '15px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('請上傳手寫字照片以開始', 250, 175);
+  saveState();
 </script>
 
 </body>
