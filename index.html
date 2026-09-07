@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>手寫字 / 書法數位化合成工具 (v0.3.5 雙兼顧完美版)</title>
+  <title>手寫字 / 書法數位化合成工具 (v0.3.3 修復版)</title>
   <meta name="theme-color" content="#0f172a">
   <style>
     :root { --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #f8fafc; --primary: #38bdf8; --accent: #6366f1; }
@@ -28,10 +28,24 @@
     input[type="range"] { width: 100%; accent-color: var(--primary); }
     select { flex: 1; }
     input[type="color"] { padding: 2px; width: 36px; height: 32px; cursor: pointer; }
-    .canvas-wrap { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #1e293b; min-height: 240px; position: relative; display: flex; justify-content: center; align-items: center; }
-    canvas { max-width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
+
+    /* 確保預覽區域大小固定且不縮小 */
+    .canvas-wrap { 
+      width: 100%; 
+      aspect-ratio: 4 / 3; 
+      min-height: 280px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      overflow: hidden; 
+      background: #090d16; 
+      position: relative; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+    }
+    canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; cursor: grab; touch-action: none; }
     .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 10px; cursor: pointer; }
-    #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; }
+    #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; z-index: 10; }
   </style>
 </head>
 <body>
@@ -39,7 +53,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.5 兼顧實心與去痕版</span>
+    <span class="tag">v0.3.3 穩定修復版</span>
   </header>
 
   <div class="btn-group">
@@ -56,8 +70,8 @@
     <div class="sec-title">2. 模式與風格參數</div>
     <div class="ctrl-grid">
       <select id="modeSelect">
-        <option value="calligraphy">毛筆 / 書法模式（自適應雙門檻）</option>
-        <option value="fine">硬筆字模式（純二值化）</option>
+        <option value="calligraphy">毛筆 / 書法模式</option>
+        <option value="fine">硬筆字模式</option>
       </select>
 
       <label class="row" style="cursor:pointer;">
@@ -66,7 +80,7 @@
       </label>
 
       <div>
-        <label>去背靈敏度 (抑制紙痕與陰影) <span class="val" id="sensVal">50</span></label>
+        <label>去背靈敏度 (抑制背景紙痕) <span class="val" id="sensVal">50</span></label>
         <input type="range" id="sensitivity" min="0" max="100" value="50">
       </div>
 
@@ -124,13 +138,11 @@
     const { imgDataData, width: w, height: h, mode, sensitivity, hexColor, enableFlatField } = e.data;
 
     let gray = new Uint8Array(w * h);
-
     for (let i = 0; i < imgDataData.length; i += 4) {
-      const r = imgDataData[i], g = imgDataData[i + 1], b = imgDataData[i + 2];
-      gray[i / 4] = (r * 38 + g * 75 + b * 15) >> 7;
+      gray[i / 4] = (imgDataData[i] * 38 + imgDataData[i + 1] * 75 + imgDataData[i + 2] * 15) >> 7;
     }
 
-    // 1. 平場校正 (強效消除摺痕與大面積光影不均)
+    // 平場校正 (消除大面積陰影與紙痕)
     if (enableFlatField) {
       const scaleFactor = 16; 
       const sw = Math.max(1, Math.floor(w / scaleFactor));
@@ -141,23 +153,10 @@
           smallGray[sy * sw + sx] = gray[Math.min(h - 1, sy * scaleFactor) * w + Math.min(w - 1, sx * scaleFactor)];
         }
       }
-      let blurredSmall = new Uint8Array(sw * sh);
-      for (let sy = 0; sy < sh; sy++) {
-        for (let sx = 0; sx < sw; sx++) {
-          let sum = 0, count = 0;
-          for (let dy = -4; dy <= 4; dy++) {
-            for (let dx = -4; dx <= 4; dx++) {
-              let nx = sx + dx, ny = sy + dy;
-              if (nx >= 0 && nx < sw && ny >= 0 && ny < sh) { sum += smallGray[ny * sw + nx]; count++; }
-            }
-          }
-          blurredSmall[sy * sw + sx] = sum / count;
-        }
-      }
       for (let y = 0; y < h; y++) {
         let sy = Math.min(sh - 1, Math.floor(y / scaleFactor));
         for (let x = 0; x < w; x++) {
-          let bgVal = blurredSmall[sy * sw + Math.min(sw - 1, Math.floor(x / scaleFactor))];
+          let bgVal = smallGray[sy * sw + Math.min(sw - 1, Math.floor(x / scaleFactor))];
           let idx = y * w + x;
           if (bgVal > 0) {
             let norm = (gray[idx] / bgVal) * 235;
@@ -167,7 +166,7 @@
       }
     }
 
-    // 2. 積分圖計算
+    // 積分圖
     const integral = new Float64Array(w * h);
     for (let x = 0; x < w; x++) {
       let sum = 0;
@@ -177,10 +176,8 @@
       }
     }
 
-    // 3. 自適應雙門檻 (Adaptive Dual-Thresholding)：兼顧筆劃實心與去痕
     const s = Math.floor(Math.max(16, Math.floor(Math.min(w, h) / 14)) / 2);
-    const C_bg = 4 + (sensitivity / 100) * 26;  // 背景門檻 (濾紙痕)
-    const C_core = C_bg + 12;                   // 核心門檻 (保筆劃實心)
+    const C = 2 + (sensitivity / 100) * 28;
 
     const r = parseInt(hexColor.slice(1, 3), 16), g = parseInt(hexColor.slice(3, 5), 16), b = parseInt(hexColor.slice(5, 7), 16);
     let alphaMap = new Uint8Array(w * h);
@@ -192,20 +189,13 @@
         const y1 = Math.max(y - s, 0), y2 = Math.min(y + s, h - 1);
         const count = (x2 - x1) * (y2 - y1);
         const sum = integral[y2 * w + x2] - integral[y1 * w + x2] - integral[y2 * w + x1] + integral[y1 * w + x1];
-        const localMean = sum / count;
+        const threshold = (sum / count) - C;
 
-        const tCore = localMean - C_core;
-        const tBg = localMean - C_bg;
-
-        if (rawGray < tCore) {
-          // 筆劃內部：100% 飽滿實心，完全不透明
-          alphaMap[idx] = 255;
-        } else if (rawGray < tBg) {
-          // 筆劃邊緣過渡區：平滑羽化
-          let alpha = ((tBg - rawGray) / (tBg - tCore)) * 255;
-          alphaMap[idx] = Math.floor(alpha);
+        if (rawGray < threshold) {
+          // 修改處：對較深墨跡部分直接填滿 255 (確保筆劃內部絕對實心不鏤空)
+          let alpha = (threshold - rawGray) * 22;
+          alphaMap[idx] = alpha > 255 ? 255 : Math.floor(alpha);
         } else {
-          // 背景與紙痕：100% 完全濾除
           alphaMap[idx] = 0;
         }
       }
@@ -228,36 +218,27 @@
   const processedTextCanvas = document.createElement('canvas');
 
   let textImg = null, bgImg = null, textPosX = null, textPosY = null;
-  let isDragging = false, dragStartX = 0, dragStartY = 0, debounceTimer = null, historyStack = [], historyIndex = -1, isExecHistory = false;
+  let debounceTimer = null;
 
   const $ = id => document.getElementById(id);
   function showLoading(show, text="處理中...") { loading.textContent = text; loading.style.display = show ? 'flex' : 'none'; }
 
-  function getUIState() {
-    return {
-      mode: $('modeSelect').value, enableFlatField: $('flatFieldToggle').checked,
-      sensitivity: $('sensitivity').value, textScale: $('textScale').value, textColor: $('textColor').value,
-      textBgType: $('textBgType').value, textBgColor: $('textBgColor').value, textPosX, textPosY,
-      textSrc: textImg?.src, bgSrc: bgImg?.src
-    };
-  }
-
-  function saveState() {
-    if (isExecHistory) return;
-    historyStack = historyStack.slice(0, historyIndex + 1);
-    historyStack.push(getUIState());
-    historyIndex = historyStack.length - 1;
-    $('undoBtn').disabled = historyIndex <= 0;
-    $('redoBtn').disabled = historyIndex >= historyStack.length - 1;
-  }
-
   function processText() {
     if (!textImg) return;
     showLoading(true, "去背運算中...");
+    
+    // 預先適當縮放傳入 Worker，維持穩定流暢度
+    const maxDim = 1280;
+    let scale = 1;
+    if (textImg.width > maxDim || textImg.height > maxDim) {
+      scale = Math.min(maxDim / textImg.width, maxDim / textImg.height);
+    }
+
     const temp = document.createElement('canvas');
-    temp.width = textImg.width; temp.height = textImg.height;
+    temp.width = Math.floor(textImg.width * scale); 
+    temp.height = Math.floor(textImg.height * scale);
     const tCtx = temp.getContext('2d');
-    tCtx.drawImage(textImg, 0, 0);
+    tCtx.drawImage(textImg, 0, 0, temp.width, temp.height);
     const imgData = tCtx.getImageData(0, 0, temp.width, temp.height);
 
     worker.postMessage({
@@ -278,32 +259,19 @@
     render();
   };
 
-  function drawPreviewWatermark(targetCtx, w, h) {
-    targetCtx.save();
-    const fontSize = Math.max(16, Math.floor(w / 18));
-    targetCtx.font = `bold ${fontSize}px sans-serif`;
-    targetCtx.textAlign = 'center'; targetCtx.textBaseline = 'middle';
-    [{ x: w * 0.25, y: h * 0.3 }, { x: w * 0.75, y: h * 0.7 }].forEach(pt => {
-      targetCtx.save();
-      targetCtx.translate(pt.x, pt.y); targetCtx.rotate(-25 * Math.PI / 180);
-      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-      targetCtx.fillText('預覽專用 PREVIEW', 0, 0);
-      targetCtx.restore();
-    });
-    targetCtx.restore();
-  }
-
   function render(isExport = false) {
-    let tw = bgImg ? bgImg.width : (textImg ? textImg.width : 500);
-    let th = bgImg ? bgImg.height : (textImg ? textImg.height : 350);
+    let tw = bgImg ? bgImg.width : (textImg ? textImg.width : 800);
+    let th = bgImg ? bgImg.height : (textImg ? textImg.height : 600);
     mainCanvas.width = tw; mainCanvas.height = th;
 
     if (bgImg) ctx.drawImage(bgImg, 0, 0, tw, th);
     else ctx.clearRect(0, 0, tw, th);
 
-    if (textImg) {
-      const rw = processedTextCanvas.width * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * (parseInt($('textScale').value, 10) / 100));
-      const rh = processedTextCanvas.height * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * (parseInt($('textScale').value, 10) / 100));
+    if (textImg && processedTextCanvas.width > 0) {
+      const scaleVal = parseInt($('textScale').value, 10) / 100;
+      const rw = processedTextCanvas.width * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * scaleVal);
+      const rh = processedTextCanvas.height * (Math.min(tw / processedTextCanvas.width, th / processedTextCanvas.height) * scaleVal);
+      
       if (textPosX === null) textPosX = (tw - rw) / 2;
       if (textPosY === null) textPosY = (th - rh) / 2;
 
@@ -314,18 +282,15 @@
       }
       ctx.drawImage(processedTextCanvas, textPosX, textPosY, rw, rh);
     }
-    if (!isExport && (textImg || bgImg)) drawPreviewWatermark(ctx, tw, th);
   }
 
   $('textInput').addEventListener('change', (e) => {
     const file = e.target.files[0]; if (!file) return;
-    showLoading(true, "載入中...");
+    showLoading(true, "載入圖片中...");
     const r = new FileReader();
     r.onload = (evt) => {
       const img = new Image();
-      img.onload = () => {
-        textImg = img; textPosX = null; textPosY = null; processText(); saveState();
-      };
+      img.onload = () => { textImg = img; textPosX = null; textPosY = null; processText(); };
       img.src = evt.target.result;
     };
     r.readAsDataURL(file);
@@ -334,30 +299,31 @@
   $('bgInput').addEventListener('change', (e) => {
     const file = e.target.files[0]; if (!file) return;
     const r = new FileReader();
-    r.onload = (evt) => { bgImg = new Image(); bgImg.onload = () => { render(); saveState(); }; bgImg.src = evt.target.result; };
+    r.onload = (evt) => { bgImg = new Image(); bgImg.onload = () => render(); bgImg.src = evt.target.result; };
     r.readAsDataURL(file);
   });
 
-  $('sensitivity').addEventListener('input', (e) => { $('sensVal').textContent = e.target.value; clearTimeout(debounceTimer); debounceTimer = setTimeout(processText, 100); });
+  $('sensitivity').addEventListener('input', (e) => { $('sensVal').textContent = e.target.value; clearTimeout(debounceTimer); debounceTimer = setTimeout(processText, 150); });
   $('textScale').addEventListener('input', (e) => { $('scaleVal').textContent = e.target.value + '%'; render(); });
-  $('textColor').addEventListener('change', () => { processText(); saveState(); });
-  $('flatFieldToggle').addEventListener('change', () => { processText(); saveState(); });
-  $('modeSelect').addEventListener('change', () => { processText(); saveState(); });
+  $('textColor').addEventListener('change', () => processText());
+  $('flatFieldToggle').addEventListener('change', () => processText());
+  $('modeSelect').addEventListener('change', () => processText());
+  $('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); });
 
   $('downloadBtn').addEventListener('click', () => {
+    if (!textImg && !bgImg) return;
     render(true);
     const a = document.createElement('a');
-    a.download = `handwriting_v0.3.5_perfect.png`;
+    a.download = `handwriting_v0.3.3_fixed.png`;
     a.href = mainCanvas.toDataURL('image/png');
     a.click();
     render(false);
   });
 
-  mainCanvas.width = 500; mainCanvas.height = 350;
-  ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, 500, 350);
-  ctx.fillStyle = '#64748b'; ctx.font = '15px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('請上傳手寫字照片以開始', 250, 175);
-  saveState();
+  mainCanvas.width = 800; mainCanvas.height = 600;
+  ctx.fillStyle = '#090d16'; ctx.fillRect(0, 0, 800, 600);
+  ctx.fillStyle = '#64748b'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('請上傳手寫字照片以開始', 400, 300);
 </script>
 </body>
 </html>
