@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.2)</title>
+  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.3)</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -48,7 +48,7 @@
 <div class="container">
   <header>
     <h2>手寫字 / 書法數位化合成</h2>
-    <span class="tag">v0.3.2 深度去陰影版</span>
+    <span class="tag">v0.3.3 防鏤空實心版</span>
   </header>
 
   <div class="btn-group">
@@ -85,6 +85,11 @@
       </div>
 
       <div>
+        <label>筆劃實心度 / 補洞強度 (防止中間空白) <span class="val" id="holeFillVal">3</span></label>
+        <input type="range" id="holeFill" min="0" max="5" value="3">
+      </div>
+
+      <div>
         <label>雜訊/小顆粒抑制強度 <span class="val" id="noiseLevelVal">2</span></label>
         <input type="range" id="noiseLevel" min="0" max="5" value="2">
       </div>
@@ -100,7 +105,7 @@
       </div>
 
       <div class="row" style="justify-content: space-between;">
-        <div class="row"><span style="font-size:0.85rem;">字色</span><input type="color" id="textColor" value="#0000FF"></div>
+        <div class="row"><span style="font-size:0.85rem;">字色</span><input type="color" id="textColor" value="#FFFFFF"></div>
         <div class="row">
           <span style="font-size:0.85rem;">底色</span>
           <select id="textBgType">
@@ -144,19 +149,17 @@
   </div>
 </div>
 
-<!-- Web Worker 獨立線程演算法 V0.3.2 -->
+<!-- Web Worker 獨立線程演算法 V0.3.3 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
-    const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField, enableStrictBlack, noiseLevel } = e.data;
+    const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField, enableStrictBlack, noiseLevel, holeFill } = e.data;
 
     let gray = new Uint8Array(w * h);
-    let colorSat = new Uint8Array(w * h); // 記錄飽和度/顏色差
+    let colorSat = new Uint8Array(w * h);
 
     for (let i = 0; i < imgDataData.length; i += 4) {
       const r = imgDataData[i], g = imgDataData[i + 1], b = imgDataData[i + 2];
       gray[i / 4] = (r * 38 + g * 75 + b * 15) >> 7;
-      
-      // 計算色彩飽和度 (RGB 最大與最小的差值)，紙張陰影通常帶色溫，墨跡則無彩
       const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
       colorSat[i / 4] = maxC - minC;
     }
@@ -198,7 +201,7 @@
       }
     }
 
-    // 2. 積分圖計算區域自適應門檻
+    // 2. 區域自適應門檻與自適應區域生長 (防止鏤空)
     const integral = new Float64Array(w * h);
     for (let x = 0; x < w; x++) {
       let sum = 0;
@@ -213,19 +216,14 @@
     const r = parseInt(hexColor.slice(1, 3), 16), g = parseInt(hexColor.slice(3, 5), 16), b = parseInt(hexColor.slice(5, 7), 16);
     let alphaMap = new Uint8Array(w * h);
 
-    // 高絕對門檻 (超過此灰階值的直接視為背景，拒絕淺色折痕)
-    const maxGrayAllowed = enableStrictBlack ? 165 : 215;
-    const cutOffLow = 140;
+    const maxGrayAllowed = enableStrictBlack ? 175 : 220;
+    const cutOffLow = 130;
 
     for (let x = 0; x < w; x++) {
       for (let y = 0; y < h; y++) {
         const idx = y * w + x, rawGray = gray[idx];
-
-        // 條件一：絕對灰階太高 (代表太淺，非深墨) 直接排除
         if (rawGray >= maxGrayAllowed) { alphaMap[idx] = 0; continue; }
-
-        // 條件二：若開啟強效模式，且色彩飽和度過高 (黃/褐/藍折痕陰影)，排除
-        if (enableStrictBlack && colorSat[idx] > 28) { alphaMap[idx] = 0; continue; }
+        if (enableStrictBlack && colorSat[idx] > 30) { alphaMap[idx] = 0; continue; }
 
         const x1 = Math.max(x - s, 0), x2 = Math.min(x + s, w - 1);
         const y1 = Math.max(y - s, 0), y2 = Math.min(y + s, h - 1);
@@ -234,7 +232,7 @@
         const threshold = (sum / count) - C;
 
         if (rawGray < threshold) {
-          let calcAlpha = (mode === 'calligraphy') ? Math.min(255, (threshold - rawGray) * 15) : Math.min(255, (threshold - rawGray) * 28);
+          let calcAlpha = (mode === 'calligraphy') ? Math.min(255, (threshold - rawGray) * 16) : Math.min(255, (threshold - rawGray) * 28);
           if (rawGray > cutOffLow) calcAlpha = Math.floor(calcAlpha * ((maxGrayAllowed - rawGray) / (maxGrayAllowed - cutOffLow)));
           alphaMap[idx] = calcAlpha;
         } else {
@@ -243,15 +241,38 @@
       }
     }
 
-    // 3. 多階區域雜訊抑制 (Cluster Filtering)
+    // 3. 形態學內部孔洞填補 (Hole Filling) - 修復文字中間空白鏤空
+    if (holeFill > 0) {
+      let filledAlpha = new Uint8Array(w * h);
+      filledAlpha.set(alphaMap);
+      const radius = holeFill; 
+      for (let y = radius; y < h - radius; y++) {
+        for (let x = radius; x < w - radius; x++) {
+          let idx = y * w + x;
+          if (alphaMap[idx] === 0) {
+            let left = alphaMap[idx - radius] > 0;
+            let right = alphaMap[idx + radius] > 0;
+            let top = alphaMap[(y - radius) * w + x] > 0;
+            let bottom = alphaMap[(y + radius) * w + x] > 0;
+            if ((left && right) || (top && bottom)) {
+              let avgNeighborAlpha = (alphaMap[idx - radius] + alphaMap[idx + radius] + alphaMap[(y - radius) * w + x] + alphaMap[(y + radius) * w + x]) / 4;
+              filledAlpha[idx] = Math.min(255, avgNeighborAlpha * 1.2);
+            }
+          }
+        }
+      }
+      alphaMap = filledAlpha;
+    }
+
+    // 4. 多階區域雜訊抑制 (Cluster Filtering)
     if (noiseLevel > 0) {
       let cleanedAlpha = new Uint8Array(w * h);
       cleanedAlpha.set(alphaMap);
-      const radius = noiseLevel; // 半徑從 1~5
-      const minNeighbors = Math.floor((radius * 2 + 1) * (radius * 2 + 1) * 0.35); // 要求鄰域必須有 35% 以上的有效筆劃像素
+      const radius = noiseLevel;
+      const minNeighbors = Math.floor((radius * 2 + 1) * (radius * 2 + 1) * 0.30);
 
-      for (let y = radius; y < h - radius; y += 1) {
-        for (let x = radius; x < w - radius; x += 1) {
+      for (let y = radius; y < h - radius; y++) {
+        for (let x = radius; x < w - radius; x++) {
           let idx = y * w + x;
           if (alphaMap[idx] > 0) {
             let neighborCount = 0;
@@ -269,7 +290,7 @@
       alphaMap = cleanedAlpha;
     }
 
-    // 4. 硬筆字擴張
+    // 5. 硬筆字擴張
     if (mode === 'fine' && thickness > 0) {
       let rad = Math.ceil((thickness / 100) * 4);
       let expanded = new Uint8Array(w * h);
@@ -298,7 +319,6 @@
 </script>
 
 <script>
-  // PWA 初始化
   (function() {
     const manifest = { "name": "手寫字工具", "short_name": "手寫去背", "start_url": "./", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a" };
     document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})));
@@ -340,6 +360,7 @@
       enableFlatField: $('flatFieldToggle').checked,
       enableStrictBlack: $('strictBlackToggle').checked,
       sensitivity: $('sensitivity').value, 
+      holeFill: $('holeFill').value,
       noiseLevel: $('noiseLevel').value,
       strokeThickness: $('strokeThickness').value,
       textScale: $('textScale').value, textColor: $('textColor').value,
@@ -365,6 +386,7 @@
     $('strokeThickness').disabled = (st.mode !== 'fine');
     $('thickBlock').classList.toggle('disabled', st.mode !== 'fine');
     $('sensitivity').value = st.sensitivity; $('sensVal').textContent = st.sensitivity;
+    $('holeFill').value = st.holeFill ?? 3; $('holeFillVal').textContent = st.holeFill ?? 3;
     $('noiseLevel').value = st.noiseLevel ?? 2; $('noiseLevelVal').textContent = st.noiseLevel ?? 2;
     $('strokeThickness').value = st.strokeThickness; $('thickVal').textContent = st.strokeThickness;
     $('textScale').value = st.textScale; $('scaleVal').textContent = st.textScale + '%';
@@ -402,6 +424,7 @@
       enableFlatField: $('flatFieldToggle').checked,
       enableStrictBlack: $('strictBlackToggle').checked,
       sensitivity: parseInt($('sensitivity').value, 10),
+      holeFill: parseInt($('holeFill').value, 10),
       noiseLevel: parseInt($('noiseLevel').value, 10),
       thickness: parseInt($('strokeThickness').value, 10),
       hexColor: $('textColor').value
@@ -509,6 +532,7 @@
   const triggerDebounce = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { if (textImg) processText(); }, 120); };
 
   $('sensitivity').addEventListener('input', (e) => { $('sensVal').textContent = e.target.value; triggerDebounce(); });
+  $('holeFill').addEventListener('input', (e) => { $('holeFillVal').textContent = e.target.value; triggerDebounce(); });
   $('noiseLevel').addEventListener('input', (e) => { $('noiseLevelVal').textContent = e.target.value; triggerDebounce(); });
   $('strokeThickness').addEventListener('input', (e) => { $('thickVal').textContent = e.target.value; triggerDebounce(); });
   $('textScale').addEventListener('input', (e) => { $('scaleVal').textContent = e.target.value + '%'; render(); });
@@ -520,7 +544,7 @@
     if (textImg) processText(); saveState();
   });
 
-  ['sensitivity', 'noiseLevel', 'strokeThickness', 'textScale'].forEach(id => $(id).addEventListener('change', saveState));
+  ['sensitivity', 'holeFill', 'noiseLevel', 'strokeThickness', 'textScale'].forEach(id => $(id).addEventListener('change', saveState));
   ['flatFieldToggle', 'strictBlackToggle', 'textColor'].forEach(id => $(id).addEventListener('change', () => { if (textImg) processText(); saveState(); }));
   
   $('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });
@@ -552,7 +576,7 @@
     }
 
     const a = document.createElement('a');
-    a.download = `handwriting_v0.3.2_${exportCanvas.width}p.png`;
+    a.download = `handwriting_v0.3.3_${exportCanvas.width}p.png`;
     a.href = exportCanvas.toDataURL('image/png');
     a.click();
 
