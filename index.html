@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>書法集字去背與數位化工具 v0.32-1 完整版</title>
+  <title>手寫字 / 書法數位化合成工具 by S.L.S (v0.3.2)</title>
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -26,28 +26,29 @@
     .btn:hover:not(:disabled) { background: #475569; }
     .btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .section { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
-    .sec-title { font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 10px; text-transform: uppercase; border-left: 3px solid var(--primary); padding-left: 6px; }
+    .sec-title { font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 10px; text-transform: uppercase; }
     .ctrl-grid { display: flex; flex-direction: column; gap: 10px; }
     .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     label { font-size: 0.85rem; display: flex; justify-content: space-between; width: 100%; }
-    .val { color: var(--primary); font-family: monospace; font-weight: bold; }
+    .val { color: var(--primary); font-family: monospace; }
     input[type="file"], select, input[type="color"] { background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; outline: none; }
     input[type="file"] { width: 100%; }
     input[type="range"] { width: 100%; accent-color: var(--primary); }
     select { flex: 1; }
     input[type="color"] { padding: 2px; width: 36px; height: 32px; cursor: pointer; }
+    .disabled { opacity: 0.4; pointer-events: none; }
     .canvas-wrap { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #1e293b; min-height: 240px; position: relative; display: flex; justify-content: center; align-items: center; }
     canvas { max-width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
     .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 10px; cursor: pointer; }
-    #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; z-index: 10; }
+    #loading { display: none; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 600; font-size: 0.95rem; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <h2>書法集字去背與數位化工具</h2>
-    <span class="tag">v0.32-1 完整 UI 版</span>
+    <h2>手寫字 / 書法數位化合成</h2>
+    <span class="tag">v0.3.2 深度去陰影版</span>
   </header>
 
   <div class="btn-group">
@@ -61,41 +62,36 @@
   </div>
 
   <div class="section">
-    <div class="sec-title">2. 筆藝模式與 v0.3.2 演算法參數</div>
+    <div class="sec-title">2. 模式與風格參數</div>
     <div class="ctrl-grid">
       <select id="modeSelect">
-        <option value="calligraphy">毛筆 / 大字模式（強調墨韻與筆劃邊緣）</option>
-        <option value="hardpen">硬筆 / 鋼筆模式（高靈敏細筆劃）</option>
+        <option value="calligraphy">毛筆 / 書法模式（保留飛白墨韻）</option>
+        <option value="fine">硬筆字模式（局部自適應）</option>
       </select>
 
+      <label class="row" style="cursor:pointer;">
+        <input type="checkbox" id="flatFieldToggle" checked style="accent-color:var(--primary);">
+        <span>自動消除紙張陰影與折痕 (平場校正)</span>
+      </label>
+
+      <label class="row" style="cursor:pointer;">
+        <input type="checkbox" id="strictBlackToggle" checked style="accent-color:var(--primary);">
+        <span>強效過濾非墨色折痕與彩色彩噪 (黑度過濾)</span>
+      </label>
+
       <div>
-        <label>自適應門檻 (Offset) <span class="val" id="v_threshold">15</span></label>
-        <input type="range" id="threshold" min="1" max="60" value="15">
+        <label>去背靈敏度 <span class="val" id="sensVal">50</span></label>
+        <input type="range" id="sensitivity" min="0" max="100" value="50">
       </div>
 
       <div>
-        <label>深層去陰影強度 (Depth De-shadow) <span class="val" id="v_shadowSuppress">20</span></label>
-        <input type="range" id="shadowSuppress" min="0" max="50" value="20">
+        <label>雜訊/小顆粒抑制強度 <span class="val" id="noiseLevelVal">2</span></label>
+        <input type="range" id="noiseLevel" min="0" max="5" value="2">
       </div>
 
-      <div>
-        <label>強墨色臨界值 (Strong Ink) <span class="val" id="v_blackLow">80</span></label>
-        <input type="range" id="blackLow" min="10" max="150" value="80">
-      </div>
-
-      <div>
-        <label>淡墨色臨界值 (Light Ink) <span class="val" id="v_blackHigh">160</span></label>
-        <input type="range" id="blackHigh" min="80" max="230" value="160">
-      </div>
-
-      <div>
-        <label>彩色印章/紙張過濾 (Saturation Filter) <span class="val" id="v_satThreshold">30</span></label>
-        <input type="range" id="satThreshold" min="0" max="100" value="30">
-      </div>
-
-      <div>
-        <label>鄰域點陣去雜訊 (v0.3.2 Noise Filter) <span class="val" id="v_noiseFilter">3</span></label>
-        <input type="range" id="noiseFilter" min="0" max="8" value="3">
+      <div id="thickBlock" class="disabled">
+        <label>硬筆字筆劃粗細 <span class="val" id="thickVal">0</span></label>
+        <input type="range" id="strokeThickness" min="0" max="100" value="0" disabled>
       </div>
 
       <div>
@@ -104,7 +100,7 @@
       </div>
 
       <div class="row" style="justify-content: space-between;">
-        <div class="row"><span style="font-size:0.85rem;">字色</span><input type="color" id="textColor" value="#FFFFFF"></div>
+        <div class="row"><span style="font-size:0.85rem;">字色</span><input type="color" id="textColor" value="#0000FF"></div>
         <div class="row">
           <span style="font-size:0.85rem;">底色</span>
           <select id="textBgType">
@@ -113,7 +109,7 @@
             <option value="black">黑色</option>
             <option value="custom">自訂</option>
           </select>
-          <input type="color" id="textBgColor" value="#1E293B" style="display:none;">
+          <input type="color" id="textBgColor" value="#FFF9C4" style="display:none;">
         </div>
       </div>
 
@@ -135,131 +131,174 @@
 
     <div class="row" style="margin-top: 12px;">
       <span style="font-size:0.85rem; width: 110px;">下載解析度：</span>
-      <select id="exportResolution">
-        <option value="original" selected>原圖尺寸 (Original)</option>
-        <option value="3840">4K (UHD - 3840px)</option>
-        <option value="2560">2K (QHD - 2560px)</option>
-        <option value="1920">1080p (FHD - 1920px)</option>
-        <option value="1280">720p (HD - 1280px)</option>
+      <select id="exportSizeSelect">
+        <option value="720">720p (輕巧版)</option>
+        <option value="1080" selected>1080p (標準高清 ~3MB)</option>
+        <option value="1440">2K (超高清)</option>
+        <option value="2160">4K (極致畫質)</option>
+        <option value="original">原始解析度</option>
       </select>
     </div>
 
-    <button class="btn-dl" id="downloadBtn">下載去背高解析圖 (無浮水印)</button>
+    <button class="btn-dl" id="downloadBtn">下載合成圖片 (無浮水印高清版)</button>
   </div>
 </div>
 
+<!-- Web Worker 獨立線程演算法 V0.3.2 -->
 <script id="workerCode" type="javascript/worker">
   self.onmessage = function(e) {
-    const { 
-      imageDataData, width: w, height: h, mode, threshold, shadowSuppress,
-      blackLow, blackHigh, satThreshold, noiseThreshold, hexColor 
-    } = e.data;
+    const { imgDataData, width: w, height: h, mode, sensitivity, thickness, hexColor, enableFlatField, enableStrictBlack, noiseLevel } = e.data;
 
-    const gray = new Uint8ClampedArray(w * h);
-    const sat = new Uint8ClampedArray(w * h);
-    const integral = new Uint32Array(w * h);
+    let gray = new Uint8Array(w * h);
+    let colorSat = new Uint8Array(w * h); // 記錄飽和度/顏色差
 
-    // 1. 轉灰階、彩度計算與積分圖建構
-    for (let y = 0; y < h; y++) {
-      let sum = 0;
-      for (let x = 0; x < w; x++) {
-        const idx = (y * w + x) * 4;
-        const r = imageDataData[idx], g = imageDataData[idx + 1], b = imageDataData[idx + 2];
-
-        const gVal = (r * 299 + g * 587 + b * 114) / 1000;
-        gray[y * w + x] = gVal;
-
-        const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
-        sat[y * w + x] = maxC - minC;
-
-        sum += gVal;
-        if (y === 0) integral[x] = sum;
-        else integral[y * w + x] = integral[(y - 1) * w + x] + sum;
-      }
+    for (let i = 0; i < imgDataData.length; i += 4) {
+      const r = imgDataData[i], g = imgDataData[i + 1], b = imgDataData[i + 2];
+      gray[i / 4] = (r * 38 + g * 75 + b * 15) >> 7;
+      
+      // 計算色彩飽和度 (RGB 最大與最小的差值)，紙張陰影通常帶色溫，墨跡則無彩
+      const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+      colorSat[i / 4] = maxC - minC;
     }
 
-    function getAreaSum(x1, y1, x2, y2) {
-      x1 = Math.max(0, x1); y1 = Math.max(0, y1);
-      x2 = Math.min(w - 1, x2); y2 = Math.min(h - 1, y2);
-      let total = integral[y2 * w + x2];
-      if (x1 > 0) total -= integral[y2 * w + (x1 - 1)];
-      if (y1 > 0) total -= integral[(y1 - 1) * w + x2];
-      if (x1 > 0 && y1 > 0) total += integral[(y1 - 1) * w + (x1 - 1)];
-      return total;
-    }
-
-    const windowSize = mode === 'hardpen' ? 15 : 35;
-    const halfWin = Math.floor(windowSize / 2);
-    const binaryMask = new Uint8ClampedArray(w * h);
-
-    // 2. 深層去陰影 + 雙黑度門檻 + 自適應二值化
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        const gVal = gray[idx];
-        const sVal = sat[idx];
-
-        if (satThreshold > 0 && sVal > satThreshold) {
-          binaryMask[idx] = 0;
-          continue;
-        }
-
-        const count = (Math.min(w - 1, x + halfWin) - Math.max(0, x - halfWin) + 1) *
-                      (Math.min(h - 1, y + halfWin) - Math.max(0, y - halfWin) + 1);
-        const localMean = getAreaSum(x - halfWin, y - halfWin, x + halfWin, y + halfWin) / count;
-
-        const adaptiveThresh = localMean - threshold - (shadowSuppress * (1 - localMean / 255));
-
-        if (gVal < blackLow) {
-          binaryMask[idx] = 255;
-        } else if (gVal > blackHigh) {
-          binaryMask[idx] = 0;
-        } else if (gVal < adaptiveThresh) {
-          binaryMask[idx] = 255;
-        } else {
-          binaryMask[idx] = 0;
+    // 1. 平場校正 (消除大面積光影不均)
+    if (enableFlatField) {
+      const scaleFactor = 16; 
+      const sw = Math.max(1, Math.floor(w / scaleFactor));
+      const sh = Math.max(1, Math.floor(h / scaleFactor));
+      let smallGray = new Uint8Array(sw * sh);
+      for (let sy = 0; sy < sh; sy++) {
+        for (let sx = 0; sx < sw; sx++) {
+          smallGray[sy * sw + sx] = gray[Math.min(h - 1, sy * scaleFactor) * w + Math.min(w - 1, sx * scaleFactor)];
         }
       }
-    }
-
-    // 3. v0.3.2 鄰域點陣去雜訊 (Noise Filter)
-    const cr = parseInt(hexColor.slice(1, 3), 16);
-    const cg = parseInt(hexColor.slice(3, 5), 16);
-    const cb = parseInt(hexColor.slice(5, 7), 16);
-    const outputData = new Uint8ClampedArray(w * h * 4);
-
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const idx = y * w + x;
-        const pixIdx = idx * 4;
-
-        if (binaryMask[idx] === 255) {
-          let neighbors = 0;
-          for (let ny = -1; ny <= 1; ny++) {
-            for (let nx = -1; nx <= 1; nx++) {
-              if (binaryMask[(y + ny) * w + (x + nx)] === 255) neighbors++;
+      let blurredSmall = new Uint8Array(sw * sh);
+      for (let sy = 0; sy < sh; sy++) {
+        for (let sx = 0; sx < sw; sx++) {
+          let sum = 0, count = 0;
+          for (let dy = -4; dy <= 4; dy++) {
+            for (let dx = -4; dx <= 4; dx++) {
+              let nx = sx + dx, ny = sy + dy;
+              if (nx >= 0 && nx < sw && ny >= 0 && ny < sh) { sum += smallGray[ny * sw + nx]; count++; }
             }
           }
-
-          if (neighbors >= noiseThreshold) {
-            outputData[pixIdx] = cr;
-            outputData[pixIdx + 1] = cg;
-            outputData[pixIdx + 2] = cb;
-            outputData[pixIdx + 3] = 255;
-          } else {
-            outputData[pixIdx + 3] = 0;
+          blurredSmall[sy * sw + sx] = sum / count;
+        }
+      }
+      for (let y = 0; y < h; y++) {
+        let sy = Math.min(sh - 1, Math.floor(y / scaleFactor));
+        for (let x = 0; x < w; x++) {
+          let bgVal = blurredSmall[sy * sw + Math.min(sw - 1, Math.floor(x / scaleFactor))];
+          let idx = y * w + x;
+          if (bgVal > 0) {
+            let norm = (gray[idx] / bgVal) * 235;
+            gray[idx] = norm > 255 ? 255 : norm;
           }
-        } else {
-          outputData[pixIdx + 3] = 0;
         }
       }
     }
 
+    // 2. 積分圖計算區域自適應門檻
+    const integral = new Float64Array(w * h);
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let y = 0; y < h; y++) {
+        sum += gray[y * w + x];
+        integral[y * w + x] = (x === 0) ? sum : integral[y * w + (x - 1)] + sum;
+      }
+    }
+
+    const s = Math.floor(Math.max(16, Math.floor(Math.min(w, h) / 14)) / 2);
+    const C = 3 + (sensitivity / 100) * 35; 
+    const r = parseInt(hexColor.slice(1, 3), 16), g = parseInt(hexColor.slice(3, 5), 16), b = parseInt(hexColor.slice(5, 7), 16);
+    let alphaMap = new Uint8Array(w * h);
+
+    // 高絕對門檻 (超過此灰階值的直接視為背景，拒絕淺色折痕)
+    const maxGrayAllowed = enableStrictBlack ? 165 : 215;
+    const cutOffLow = 140;
+
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) {
+        const idx = y * w + x, rawGray = gray[idx];
+
+        // 條件一：絕對灰階太高 (代表太淺，非深墨) 直接排除
+        if (rawGray >= maxGrayAllowed) { alphaMap[idx] = 0; continue; }
+
+        // 條件二：若開啟強效模式，且色彩飽和度過高 (黃/褐/藍折痕陰影)，排除
+        if (enableStrictBlack && colorSat[idx] > 28) { alphaMap[idx] = 0; continue; }
+
+        const x1 = Math.max(x - s, 0), x2 = Math.min(x + s, w - 1);
+        const y1 = Math.max(y - s, 0), y2 = Math.min(y + s, h - 1);
+        const count = (x2 - x1) * (y2 - y1);
+        const sum = integral[y2 * w + x2] - integral[y1 * w + x2] - integral[y2 * w + x1] + integral[y1 * w + x1];
+        const threshold = (sum / count) - C;
+
+        if (rawGray < threshold) {
+          let calcAlpha = (mode === 'calligraphy') ? Math.min(255, (threshold - rawGray) * 15) : Math.min(255, (threshold - rawGray) * 28);
+          if (rawGray > cutOffLow) calcAlpha = Math.floor(calcAlpha * ((maxGrayAllowed - rawGray) / (maxGrayAllowed - cutOffLow)));
+          alphaMap[idx] = calcAlpha;
+        } else {
+          alphaMap[idx] = 0;
+        }
+      }
+    }
+
+    // 3. 多階區域雜訊抑制 (Cluster Filtering)
+    if (noiseLevel > 0) {
+      let cleanedAlpha = new Uint8Array(w * h);
+      cleanedAlpha.set(alphaMap);
+      const radius = noiseLevel; // 半徑從 1~5
+      const minNeighbors = Math.floor((radius * 2 + 1) * (radius * 2 + 1) * 0.35); // 要求鄰域必須有 35% 以上的有效筆劃像素
+
+      for (let y = radius; y < h - radius; y += 1) {
+        for (let x = radius; x < w - radius; x += 1) {
+          let idx = y * w + x;
+          if (alphaMap[idx] > 0) {
+            let neighborCount = 0;
+            for (let dy = -radius; dy <= radius; dy++) {
+              for (let dx = -radius; dx <= radius; dx++) {
+                if (alphaMap[(y + dy) * w + (x + dx)] > 0) neighborCount++;
+              }
+            }
+            if (neighborCount < minNeighbors) {
+              cleanedAlpha[idx] = 0;
+            }
+          }
+        }
+      }
+      alphaMap = cleanedAlpha;
+    }
+
+    // 4. 硬筆字擴張
+    if (mode === 'fine' && thickness > 0) {
+      let rad = Math.ceil((thickness / 100) * 4);
+      let expanded = new Uint8Array(w * h);
+      for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+          let maxA = 0;
+          for (let dx = -rad; dx <= rad; dx++) {
+            for (let dy = -rad; dy <= rad; dy++) {
+              let nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) { if (alphaMap[ny * w + nx] > maxA) maxA = alphaMap[ny * w + nx]; }
+            }
+          }
+          expanded[y * w + x] = maxA;
+        }
+      }
+      alphaMap = expanded;
+    }
+
+    const outputData = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      const idx = i * 4;
+      outputData[idx] = r; outputData[idx + 1] = g; outputData[idx + 2] = b; outputData[idx + 3] = alphaMap[i];
+    }
     self.postMessage({ outputData, width: w, height: h }, [outputData.buffer]);
   };
 </script>
 
 <script>
+  // PWA 初始化
   (function() {
     const manifest = { "name": "手寫字工具", "short_name": "手寫去背", "start_url": "./", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a" };
     document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})));
@@ -297,13 +336,12 @@
 
   function getUIState() {
     return {
-      mode: $('modeSelect').value,
-      threshold: $('threshold').value,
-      shadowSuppress: $('shadowSuppress').value,
-      blackLow: $('blackLow').value,
-      blackHigh: $('blackHigh').value,
-      satThreshold: $('satThreshold').value,
-      noiseFilter: $('noiseFilter').value,
+      mode: $('modeSelect').value, 
+      enableFlatField: $('flatFieldToggle').checked,
+      enableStrictBlack: $('strictBlackToggle').checked,
+      sensitivity: $('sensitivity').value, 
+      noiseLevel: $('noiseLevel').value,
+      strokeThickness: $('strokeThickness').value,
       textScale: $('textScale').value, textColor: $('textColor').value,
       textBgType: $('textBgType').value, textBgColor: $('textBgColor').value,
       textPosX, textPosY, textSrc: textImg?.src, bgSrc: bgImg?.src
@@ -322,12 +360,13 @@
   function applyState(st) {
     isExecHistory = true;
     $('modeSelect').value = st.mode;
-    $('threshold').value = st.threshold; $('v_threshold').textContent = st.threshold;
-    $('shadowSuppress').value = st.shadowSuppress; $('v_shadowSuppress').textContent = st.shadowSuppress;
-    $('blackLow').value = st.blackLow; $('v_blackLow').textContent = st.blackLow;
-    $('blackHigh').value = st.blackHigh; $('v_blackHigh').textContent = st.blackHigh;
-    $('satThreshold').value = st.satThreshold; $('v_satThreshold').textContent = st.satThreshold;
-    $('noiseFilter').value = st.noiseFilter; $('v_noiseFilter').textContent = st.noiseFilter;
+    $('flatFieldToggle').checked = st.enableFlatField;
+    $('strictBlackToggle').checked = st.enableStrictBlack ?? true;
+    $('strokeThickness').disabled = (st.mode !== 'fine');
+    $('thickBlock').classList.toggle('disabled', st.mode !== 'fine');
+    $('sensitivity').value = st.sensitivity; $('sensVal').textContent = st.sensitivity;
+    $('noiseLevel').value = st.noiseLevel ?? 2; $('noiseLevelVal').textContent = st.noiseLevel ?? 2;
+    $('strokeThickness').value = st.strokeThickness; $('thickVal').textContent = st.strokeThickness;
     $('textScale').value = st.textScale; $('scaleVal').textContent = st.textScale + '%';
     $('textColor').value = st.textColor; $('textBgType').value = st.textBgType;
     $('textBgColor').value = st.textBgColor;
@@ -358,14 +397,13 @@
     const imgData = tCtx.getImageData(0, 0, temp.width, temp.height);
 
     worker.postMessage({
-      imageDataData: imgData.data, width: temp.width, height: temp.height,
-      mode: $('modeSelect').value,
-      threshold: parseInt($('threshold').value, 10),
-      shadowSuppress: parseInt($('shadowSuppress').value, 10),
-      blackLow: parseInt($('blackLow').value, 10),
-      blackHigh: parseInt($('blackHigh').value, 10),
-      satThreshold: parseInt($('satThreshold').value, 10),
-      noiseThreshold: parseInt($('noiseFilter').value, 10),
+      imgDataData: imgData.data, width: temp.width, height: temp.height,
+      mode: $('modeSelect').value, 
+      enableFlatField: $('flatFieldToggle').checked,
+      enableStrictBlack: $('strictBlackToggle').checked,
+      sensitivity: parseInt($('sensitivity').value, 10),
+      noiseLevel: parseInt($('noiseLevel').value, 10),
+      thickness: parseInt($('strokeThickness').value, 10),
       hexColor: $('textColor').value
     });
   }
@@ -470,54 +508,51 @@
 
   const triggerDebounce = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { if (textImg) processText(); }, 120); };
 
-  const sliderIds = ['threshold', 'shadowSuppress', 'blackLow', 'blackHigh', 'satThreshold', 'noiseFilter'];
-  sliderIds.forEach(id => {
-    $(id).addEventListener('input', (e) => {
-      $('v_' + id).textContent = e.target.value;
-      triggerDebounce();
-    });
-    $(id).addEventListener('change', saveState);
+  $('sensitivity').addEventListener('input', (e) => { $('sensVal').textContent = e.target.value; triggerDebounce(); });
+  $('noiseLevel').addEventListener('input', (e) => { $('noiseLevelVal').textContent = e.target.value; triggerDebounce(); });
+  $('strokeThickness').addEventListener('input', (e) => { $('thickVal').textContent = e.target.value; triggerDebounce(); });
+  $('textScale').addEventListener('input', (e) => { $('scaleVal').textContent = e.target.value + '%'; render(); });
+  
+  $('modeSelect').addEventListener('change', (e) => {
+    const isFine = e.target.value === 'fine';
+    $('strokeThickness').disabled = !isFine;
+    $('thickBlock').classList.toggle('disabled', !isFine);
+    if (textImg) processText(); saveState();
   });
 
-  $('textScale').addEventListener('input', (e) => { $('scaleVal').textContent = e.target.value + '%'; render(); });
-  $('textScale').addEventListener('change', saveState);
-
-  $('modeSelect').addEventListener('change', () => { if (textImg) processText(); saveState(); });
-  $('textColor').addEventListener('change', () => { if (textImg) processText(); saveState(); });
-
+  ['sensitivity', 'noiseLevel', 'strokeThickness', 'textScale'].forEach(id => $(id).addEventListener('change', saveState));
+  ['flatFieldToggle', 'strictBlackToggle', 'textColor'].forEach(id => $(id).addEventListener('change', () => { if (textImg) processText(); saveState(); }));
+  
   $('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });
   $('textBgColor').addEventListener('change', () => { render(); saveState(); });
-
+  
   $('undoBtn').addEventListener('click', () => { if (historyIndex > 0) applyState(historyStack[--historyIndex]); });
   $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });
   $('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
-
-  // v0.3.3 解析度輸出鏈整合
+  
   $('downloadBtn').addEventListener('click', () => {
     render(true);
 
-    const opt = $('exportResolution').value;
+    const opt = $('exportSizeSelect').value;
     let exportCanvas = mainCanvas;
 
     if (opt !== 'original') {
       const targetWidth = parseInt(opt, 10);
-      if (mainCanvas.width > targetWidth) {
-        const scaleFactor = targetWidth / mainCanvas.width;
-        const targetHeight = Math.round(mainCanvas.height * scaleFactor);
+      const scaleFactor = targetWidth / mainCanvas.width;
+      const targetHeight = Math.round(mainCanvas.height * scaleFactor);
 
-        exportCanvas = document.createElement('canvas');
-        exportCanvas.width = targetWidth;
-        exportCanvas.height = targetHeight;
-        const exCtx = exportCanvas.getContext('2d');
+      exportCanvas = document.createElement('canvas');
+      exportCanvas.width = targetWidth;
+      exportCanvas.height = targetHeight;
+      const exCtx = exportCanvas.getContext('2d');
 
-        exCtx.imageSmoothingEnabled = true;
-        exCtx.imageSmoothingQuality = 'high';
-        exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
-      }
+      exCtx.imageSmoothingEnabled = true;
+      exCtx.imageSmoothingQuality = 'high';
+      exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
     }
 
     const a = document.createElement('a');
-    a.download = `calligraphy_v0.32-1_${exportCanvas.width}p.png`;
+    a.download = `handwriting_v0.3.2_${exportCanvas.width}p.png`;
     a.href = exportCanvas.toDataURL('image/png');
     a.click();
 
