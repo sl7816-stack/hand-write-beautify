@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>書法集字去背與數位化工具 v0.36-g</title>
+  <title>書法集字去背與數位化工具 v0.38</title>
   <meta name="theme-color" content="#f1f5f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -84,7 +84,7 @@
 <div class="container">
   <header>
     <h2>書法集字去背工具</h2>
-    <span class="tag">v0.36-g 簡約直覺版</span>
+    <span class="tag">v0.38 iOS相容升級版</span>
   </header>
 
   <div class="btn-group">
@@ -336,8 +336,8 @@
       threshold: $('threshold').value,
       minBlob: $('minBlob').value,
       stroke: $('stroke').value,
-      textScale: $('textScale').value, textColor: $('textColor').value,
-      textBgType: $('textBgType').value, textBgColor: $('textBgColor').value,
+      textScale: $('textScale').value, textColor:$('textColor').value,
+      textBgType: $('textBgType').value, textBgColor:$('textBgColor').value,
       textPosX, textPosY, textSrc: textImg?.src, bgSrc: bgImg?.src
     };
   }
@@ -496,8 +496,7 @@
 
   const sliderIds = ['threshold', 'minBlob', 'stroke'];
   sliderIds.forEach(id => {
-    $(id).addEventListener('input', (e) => {
-      $('v_' + id).textContent = e.target.value;
+    $(id).addEventListener('input', (e) => {$('v_' + id).textContent = e.target.value;
       triggerDebounce();
     });
     $(id).addEventListener('change', saveState);
@@ -510,19 +509,61 @@
     render();
   }
 
-  $('textScale').addEventListener('input', (e) => { updateScale(parseInt(e.target.value, 10)); });
-  $('textScale').addEventListener('change', saveState);
+  $('textScale').addEventListener('input', (e) => { updateScale(parseInt(e.target.value, 10)); });$('textScale').addEventListener('change', saveState);
 
   $('zoomInBtn').addEventListener('click', () => { updateScale(parseInt($('textScale').value, 10) + 10); saveState(); });
   $('zoomOutBtn').addEventListener('click', () => { updateScale(parseInt($('textScale').value, 10) - 10); saveState(); });
 
-  $('textColor').addEventListener('change', () => { if (textImg) processText(); saveState(); });
-  $('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });
-  $('textBgColor').addEventListener('change', () => { render(); saveState(); });
+  $('textColor').addEventListener('change', () => { if (textImg) processText(); saveState(); });$('textBgType').addEventListener('change', (e) => { $('textBgColor').style.display = (e.target.value === 'custom') ? 'inline-block' : 'none'; render(); saveState(); });$('textBgColor').addEventListener('change', () => { render(); saveState(); });
 
   $('undoBtn').addEventListener('click', () => { if (historyIndex > 0) applyState(historyStack[--historyIndex]); });
-  $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });
-  $('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
+  $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });$('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
+
+  /**
+   * v0.38 跨平台安全下載核心邏輯
+   * 針對 iOS 採用 Web Share API 儲存，其他裝置（Android/PC）100% 保持 v0.36 原有傳統下載流程
+   */
+  async function safeDownloadCanvas(sourceCanvas, filename) {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    sourceCanvas.toBlob(async (blob) => {
+      if (!blob) {
+        alert('圖檔產生失敗');
+        return;
+      }
+
+      // 1. 僅在 iOS 且支援 Web Share API 時觸發原生儲存選單
+      if (isIOS && navigator.canShare) {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: '下載書法去背圖檔',
+              text: '書法集字去背與數位化圖片'
+            });
+            return; // iOS 儲存成功後安全結束
+          } catch (err) {
+            if (err.name === 'AbortError') return; // 使用者主動取消，不動作
+            console.warn('Web Share 失敗，自動降級為傳統下載:', err);
+          }
+        }
+      }
+
+      // 2. Android 與 Desktop 完全維持 v0.36-g 的原有傳統點擊下載邏輯
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.download = filename;
+      a.href = blobUrl;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    }, 'image/png');
+  }
 
   $('downloadBtn').addEventListener('click', () => {
     render(true);
@@ -544,10 +585,10 @@
       exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
     }
 
-    const a = document.createElement('a');
-    a.download = `calligraphy_v0.36-g_${targetWidth}p.png`;
-    a.href = exportCanvas.toDataURL('image/png');
-    a.click();
+    const filename = `calligraphy_v0.38_${targetWidth}p.png`;
+    
+    // 呼叫 v0.38 跨平台安全下載函式
+    safeDownloadCanvas(exportCanvas, filename);
 
     render(false);
   });
