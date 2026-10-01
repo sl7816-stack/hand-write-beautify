@@ -1,6 +1,6 @@
 {
-  "name": "手寫字書法數位化工具",
-  "short_name": "手寫去背",
+  "name": "書法美圖小工具",
+  "short_name": "書法美圖",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
