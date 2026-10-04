@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>書法美圖小工具 v0.38</title>
+  <title>書法美圖小工具 v0.38-a</title>
   <meta name="theme-color" content="#f1f5f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
+  <!-- iOS Safari 新增至主畫面圖示 -->
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" id="manifestPlaceholder">
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-<!-- iOS Safari 新增至主畫面圖示 -->
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
   <style>
     :root {
       --bg-gradient: linear-gradient(135deg, #dbfafe 0%, #ede9fe 50%, #f1f5f9 100%);
@@ -85,7 +86,7 @@
 <div class="container">
   <header>
     <h2>書法美圖小工具</h2>
-    <span class="tag">v0.38 iOS相容升級版</span>
+    <span class="tag">v0.38-a 流水號版</span>
   </header>
 
   <div class="btn-group">
@@ -171,7 +172,7 @@
       </select>
     </div>
 
-    <button class="btn-dl" id="downloadBtn">立即下載圖檔</button>
+    <button class="btn-dl" id="downloadBtn">立即下載去背圖檔</button>
   </div>
 </div>
 
@@ -298,7 +299,22 @@
 
 <script>
   (function() {
-    const manifest = { "name": "手寫字工具", "short_name": "手寫去背", "start_url": "./", "display": "standalone", "background_color": "#f1f5f9", "theme_color": "#f1f5f9" };
+    const manifest = { 
+      "name": "手寫字工具", 
+      "short_name": "手寫去背", 
+      "start_url": "./", 
+      "display": "standalone", 
+      "background_color": "#f1f5f9", 
+      "theme_color": "#f1f5f9",
+      "icons": [
+        {
+          "src": "icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any maskable"
+        }
+      ]
+    };
     document.getElementById('manifestPlaceholder').setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'})));
     if ('serviceWorker' in navigator) {
       const sw = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request)));`;
@@ -521,8 +537,34 @@
   $('redoBtn').addEventListener('click', () => { if (historyIndex < historyStack.length - 1) applyState(historyStack[++historyIndex]); });$('resetPosBtn').addEventListener('click', () => { textPosX = null; textPosY = null; render(); saveState(); });
 
   /**
+   * 檔名流水號產生器 (格式：YYYY-MM-DD-001)
+   */
+  function generateFormattedFilename() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const lastDate = localStorage.getItem('calligraphy_last_download_date');
+    let seq = parseInt(localStorage.getItem('calligraphy_download_seq') || '0', 10);
+
+    if (lastDate === todayStr) {
+      seq += 1;
+    } else {
+      seq = 1;
+      localStorage.setItem('calligraphy_last_download_date', todayStr);
+    }
+
+    localStorage.setItem('calligraphy_download_seq', seq.toString());
+    const seqStr = String(seq).padStart(3, '0');
+
+    return `${todayStr}-${seqStr}.png`;
+  }
+
+  /**
    * v0.38 跨平台安全下載核心邏輯
-   * 針對 iOS 採用 Web Share API 儲存，其他裝置（Android/PC）100% 保持 v0.36 原有傳統下載流程
+   * 針對 iOS 採用 Web Share API 儲存，其他裝置（Android/PC）100% 保持原本傳統下載流程
    */
   async function safeDownloadCanvas(sourceCanvas, filename) {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -551,7 +593,7 @@
         }
       }
 
-      // 2. Android 與 Desktop 完全維持 v0.36-g 的原有傳統點擊下載邏輯
+      // 2. Android 與 Desktop 完全維持原本傳統點擊下載邏輯
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.download = filename;
@@ -586,9 +628,10 @@
       exCtx.drawImage(mainCanvas, 0, 0, targetWidth, targetHeight);
     }
 
-    const filename = `calligraphy_v0.38_${targetWidth}p.png`;
+    // 取得 YYYY-MM-DD-001 格式之檔名
+    const filename = generateFormattedFilename();
     
-    // 呼叫 v0.38 跨平台安全下載函式
+    // 呼叫跨平台安全下載函式
     safeDownloadCanvas(exportCanvas, filename);
 
     render(false);
@@ -627,7 +670,7 @@
   mainCanvas.width = 500; mainCanvas.height = 350;
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 500, 350);
   ctx.fillStyle = '#94a3b8'; ctx.font = '15px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('請選擇手寫字照片以開始', 250, 175);
+  ctx.fillText('請選擇書法照片以開始', 250, 175);
   saveState();
 </script>
 
