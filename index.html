@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>書法美圖小工具 v0.38-a</title>
+  <title>書法美圖小工具 v0.38-b</title>
   <meta name="theme-color" content="#f1f5f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="手寫去背">
@@ -78,6 +78,15 @@
     .btn-dl { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1rem; width: 100%; margin-top: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25); transition: opacity 0.2s; }
     .btn-dl:hover { opacity: 0.9; }
 
+    footer {
+      margin-top: 20px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(203, 213, 225, 0.8);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
     #loading { display: none; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(2px); justify-content: center; align-items: center; color: var(--primary); font-weight: 700; font-size: 1rem; z-index: 10; }
   </style>
 </head>
@@ -86,7 +95,7 @@
 <div class="container">
   <header>
     <h2>書法美圖小工具</h2>
-    <span class="tag">v0.38-a 流水號版</span>
+    <span class="tag">v0.38-b</span>
   </header>
 
   <div class="btn-group">
@@ -174,6 +183,10 @@
 
     <button class="btn-dl" id="downloadBtn">立即下載去背圖檔</button>
   </div>
+
+  <footer>
+    Designed by S.L.
+  </footer>
 </div>
 
 <script id="workerCode" type="javascript/worker">
